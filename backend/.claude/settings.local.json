@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(alembic revision:*)",
+      "Bash(psql postgresql://duongthanhhung:123123123@localhost:5432/postgres -c \"DELETE FROM alembic_version;\")",
+      "Bash(alembic upgrade:*)"
+    ]
+  }
+}
