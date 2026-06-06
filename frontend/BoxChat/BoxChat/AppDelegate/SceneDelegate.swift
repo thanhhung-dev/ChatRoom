@@ -11,6 +11,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
   var window: UIWindow?
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
 
@@ -35,6 +36,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     window.rootViewController = SplashViewController()
     window.makeKeyAndVisible()
 
+=======
+
+  func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = (scene as? UIWindowScene) else { return }
+
+    let window = UIWindow(windowScene: windowScene)
+    self.window = window
+
+    window.rootViewController = SplashViewController()
+    window.makeKeyAndVisible()
+
+>>>>>>> Stashed changes
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleLogout),
@@ -58,6 +74,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options: .transitionCrossDissolve,
         animations: { window.rootViewController = splash }
       )
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 >>>>>>> Stashed changes
     }
@@ -99,12 +116,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   }
 
 >>>>>>> Stashed changes
+=======
+    }
+  }
+
+>>>>>>> Stashed changes
   // MARK: - Scene Lifecycle
 
   func sceneDidDisconnect(_ scene: UIScene) {
     NotificationCenter.default.removeObserver(self, name: .didLogoutRequired, object: nil)
   }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

@@ -276,6 +276,7 @@ extension NetworkManager {
     request(path: path, completion: completion)
   }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
     func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
@@ -303,6 +304,13 @@ extension NetworkManager {
   }
 >>>>>>> Stashed changes
 
+=======
+
+  func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
+    request(path: "/rooms/\(roomId)", completion: completion)
+  }
+
+>>>>>>> Stashed changes
   func createRoom(
     name: String, description: String?,
     completion: @escaping (Result<Room, Error>) -> Void
@@ -343,6 +351,7 @@ extension NetworkManager {
     }
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     func updateRoom(roomId: Int, name: String?, description: String?, completion: @escaping (Result<Room, Error>) -> Void) {
         var body: [String: Any] = [:]
@@ -361,6 +370,8 @@ extension NetworkManager {
             return
         }
 =======
+=======
+>>>>>>> Stashed changes
   }
 
   func regenerateInviteCode(
@@ -471,6 +482,7 @@ extension NetworkManager {
     if let token = TokenManager.shared.accessToken {
       urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
+<<<<<<< Updated upstream
 >>>>>>> Stashed changes
 
     var bodyData = Data()
@@ -484,6 +496,11 @@ extension NetworkManager {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         urlRequest.httpBody = body
 =======
+=======
+
+    var bodyData = Data()
+
+>>>>>>> Stashed changes
     bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
     bodyData.append(
       "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(
@@ -491,6 +508,9 @@ extension NetworkManager {
     bodyData.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
     bodyData.append(fileData)
     bodyData.append("\r\n".data(using: .utf8)!)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     for (name, value) in extraFields where !value.isEmpty {
@@ -513,6 +533,7 @@ extension NetworkManager {
         return
       }
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
             if statusCode == 401 {
                 self.refreshAccessToken { success in
@@ -693,6 +714,26 @@ extension NetworkManager {
             DispatchQueue.main.async {
               NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
             }
+=======
+      let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+
+      if statusCode == 401 {
+        self.refreshAccessToken { success in
+          if success {
+            self.uploadMultipart(
+              path: path,
+              fileData: fileData,
+              fileName: fileName,
+              mimeType: mimeType,
+              extraFields: extraFields,
+              completion: completion
+            )
+          } else {
+            TokenManager.shared.clear()
+            DispatchQueue.main.async {
+              NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+            }
+>>>>>>> Stashed changes
 =======
       let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
 
