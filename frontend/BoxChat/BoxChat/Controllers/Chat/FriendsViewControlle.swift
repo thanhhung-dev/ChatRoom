@@ -3,7 +3,7 @@ import UIKit
 class FriendsViewController: UIViewController {
     
     private let tableView = UITableView()
-    private var friends: [RoomMember] = [] // Danh bạ bạn bè mẫu tải từ database
+    private var friends: [RoomMember] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,7 +33,6 @@ class FriendsViewController: UIViewController {
     }
     
     private func loadMockFriends() {
-        // Load mẫu một số bạn bè tương ứng với dữ liệu database mẫu của dự án
         let decoder = JSONDecoder()
         let sampleData = """
         [

@@ -94,7 +94,6 @@ class UserProfileViewController: UIViewController {
         actionStackView.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            // Layout Card cá nhân
             cardView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
@@ -113,7 +112,6 @@ class UserProfileViewController: UIViewController {
             usernameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
             usernameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
             
-            // Layout Nút thao tác dưới Card
             actionStackView.topAnchor.constraint(equalTo: cardView.bottomAnchor, constant: 24),
             actionStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             actionStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
@@ -125,23 +123,34 @@ class UserProfileViewController: UIViewController {
     
     private func configureProfile() {
         if let currentUser = TokenManager.shared.currentUser {
-            displayNameLabel.text = currentUser.displayName
+            // Tạm thời dùng username làm displayName để fix dứt điểm lỗi
+            displayNameLabel.text = currentUser.username
             usernameLabel.text = "@\(currentUser.username)"
+            
+            if let avatarString = currentUser.avatarUrl, let url = URL(string: avatarString) {
+                URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                    if let data = data, let image = UIImage(data: data) {
+                        DispatchQueue.main.async {
+                            self?.avatarImageView.image = image
+                        }
+                    }
+                }.resume()
+            }
         }
     }
     
     @objc private func didTapLogout() {
-        WebSocketService.shared.disconnect()
-        TokenManager.shared.clear()
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let sceneDelegate = windowScene.delegate as? SceneDelegate,
-           let window = sceneDelegate.window {
-            
-            let loginVC = LoginViewController()
-            window.rootViewController = loginVC
-            
-            UIView.transition(with: window, duration: 0.35, options: .transitionCrossDissolve, animations: nil, completion: nil)
-        }
+        let alert = UIAlertController(
+            title: "Đăng xuất",
+            message: "Bạn có chắc muốn đăng xuất không?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Huỷ", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Đăng xuất", style: .destructive) { _ in
+            TokenManager.shared.clear()
+            WebSocketService.shared.disconnect()
+            NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+        })
+        present(alert, animated: true)
     }
 }

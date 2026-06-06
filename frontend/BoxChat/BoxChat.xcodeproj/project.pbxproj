@@ -15,6 +15,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Models/Untitled.swift,
 			);
 			target = 045804B72FD32C0F00B6FF24 /* BoxChat */;
 		};

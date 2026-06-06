@@ -12,7 +12,6 @@ class MainTabBarController: UITabBarController {
         tabBar.tintColor = .systemBlue
         tabBar.unselectedItemTintColor = .systemGray
         
-        // Tạo hiệu ứng nền kính mờ sang trọng cho Tab Bar
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundEffect = UIBlurEffect(style: .systemChromeMaterial)
@@ -24,33 +23,46 @@ class MainTabBarController: UITabBarController {
     }
     
     private func setupViewControllers() {
-        // Tab 1: Tin Nhắn (Chats)
         let chatListVC = RoomListViewController()
         let chatNav = UINavigationController(rootViewController: chatListVC)
         chatNav.tabBarItem = UITabBarItem(
-            title: "Tin nhắn",
-            image: UIImage(systemName: "bubble.left.and.bubble.right"),
-            selectedImage: UIImage(systemName: "bubble.left.and.bubble.right.fill")
+            title: "Chats",
+            image: UIImage(systemName: "message"),
+            selectedImage: UIImage(systemName: "message.fill")
         )
         
-        // Tab 2: Bạn Bè (Friends / Contacts)
         let friendsVC = FriendsViewController()
         let friendsNav = UINavigationController(rootViewController: friendsVC)
         friendsNav.tabBarItem = UITabBarItem(
-            title: "Bạn bè",
+            title: "Danh bạ",
             image: UIImage(systemName: "person.2"),
             selectedImage: UIImage(systemName: "person.2.fill")
         )
         
-        // Tab 3: Cá Nhân (Profile)
+        let exploreVC = UIViewController()
+        let exploreNav = UINavigationController(rootViewController: exploreVC)
+        exploreNav.tabBarItem = UITabBarItem(
+            title: "Khám phá",
+            image: UIImage(systemName: "plus.circle"),
+            selectedImage: UIImage(systemName: "plus.circle.fill")
+        )
+        
+        let notificationVC = UIViewController()
+        let notificationNav = UINavigationController(rootViewController: notificationVC)
+        notificationNav.tabBarItem = UITabBarItem(
+            title: "Thông báo",
+            image: UIImage(systemName: "bell"),
+            selectedImage: UIImage(systemName: "bell.fill")
+        )
+        
         let profileVC = UserProfileViewController()
         let profileNav = UINavigationController(rootViewController: profileVC)
         profileNav.tabBarItem = UITabBarItem(
             title: "Cá nhân",
-            image: UIImage(systemName: "person.crop.circle"),
-            selectedImage: UIImage(systemName: "person.crop.circle.fill")
+            image: UIImage(systemName: "person"),
+            selectedImage: UIImage(systemName: "person.fill")
         )
         
-        viewControllers = [chatNav, friendsNav, profileNav]
+        viewControllers = [chatNav, friendsNav, exploreNav, notificationNav, profileNav]
     }
 }

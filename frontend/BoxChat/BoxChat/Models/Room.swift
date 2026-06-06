@@ -5,7 +5,7 @@ struct Room: Codable {
     var name: String
     var description: String?
     let inviteCode: String
-    let createdBy: String?
+    let createdBy: Int?
     var members: [RoomMember]?
     var lastMessage: Message?
     var unreadCount: Int
@@ -27,7 +27,7 @@ struct Room: Codable {
         name        = try c.decode(String.self, forKey: .name)
         description = try c.decodeIfPresent(String.self, forKey: .description)
         inviteCode  = try c.decodeIfPresent(String.self, forKey: .inviteCode) ?? ""
-        createdBy   = try c.decodeIfPresent(String.self, forKey: .createdBy)
+        createdBy = try c.decodeIfPresent(Int.self, forKey: .createdBy)
         members     = try c.decodeIfPresent([RoomMember].self, forKey: .members)
         lastMessage = try c.decodeIfPresent(Message.self, forKey: .lastMessage)
         unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
