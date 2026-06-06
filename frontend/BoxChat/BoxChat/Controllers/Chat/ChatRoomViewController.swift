@@ -6,10 +6,13 @@ class ChatRoomViewController: UIViewController {
     private var isTyping = false
     
     private let tableView = UITableView()
-    private let inputVisualEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+    private let inputContainerView = UIView()
+    private let textFieldContainer = UIView()
     private let textField = UITextField()
     private let sendButton = UIButton(type: .system)
     private let attachButton = UIButton(type: .system)
+    private let emojiButton = UIButton(type: .system)
+    private let micButton = UIButton(type: .system)
     
     private let activityIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .medium)
@@ -36,15 +39,14 @@ class ChatRoomViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = room.name
+        view.backgroundColor = .systemBackground
         navigationItem.largeTitleDisplayMode = .never
-        view.backgroundColor = .systemGroupedBackground
         
+        setupCustomNavBar()
         setupTableView()
         setupInputContainer()
         setupTypingIndicator()
         setupActivityIndicator()
-        setupNavBar()
         
         loadMessageHistory()
         joinWebSocketRoom()
@@ -66,16 +68,55 @@ class ChatRoomViewController: UIViewController {
         leaveWebSocketRoom()
     }
     
-    private func setupNavBar() {
-        let infoButton = UIBarButtonItem(image: UIImage(systemName: "info.circle"), style: .plain, target: self, action: #selector(didTapInfo))
-        navigationItem.rightBarButtonItem = infoButton
+    private func setupCustomNavBar() {
+        let titleView = UIView()
+        let avatarImageView = UIImageView()
+        avatarImageView.backgroundColor = .systemGray4
+        avatarImageView.layer.cornerRadius = 18
+        avatarImageView.clipsToBounds = true
+        avatarImageView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let titleLabel = UILabel()
+        titleLabel.text = room.name
+        titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let statusLabel = UILabel()
+        statusLabel.text = "Đang hoạt động"
+        statusLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        statusLabel.textColor = .secondaryLabel
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, statusLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        titleView.addSubview(avatarImageView)
+        titleView.addSubview(textStack)
+        
+        NSLayoutConstraint.activate([
+            avatarImageView.leadingAnchor.constraint(equalTo: titleView.leadingAnchor),
+            avatarImageView.centerYAnchor.constraint(equalTo: titleView.centerYAnchor),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 36),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 36),
+            
+            textStack.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 8),
+            textStack.trailingAnchor.constraint(equalTo: titleView.trailingAnchor),
+            textStack.centerYAnchor.constraint(equalTo: titleView.centerYAnchor),
+            
+            titleView.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        navigationItem.titleView = titleView
+        
+        let callButton = UIBarButtonItem(image: UIImage(systemName: "phone"), style: .plain, target: self, action: nil)
+        let menuButton = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), style: .plain, target: self, action: #selector(didTapInfo))
+        navigationItem.rightBarButtonItems = [menuButton, callButton]
     }
     
     @objc private func didTapInfo() {
-        let message = """
-        Mô tả: \(room.description ?? "Không có mô tả")
-        Mã mời: \(room.inviteCode)
-        """
+        let message = "Mô tả: \(room.description ?? "Không có mô tả")\nMã mời: \(room.inviteCode)"
         let alert = UIAlertController(title: room.name, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Sao chép Mã mời", style: .default) { _ in
             UIPasteboard.general.string = self.room.inviteCode
@@ -96,62 +137,89 @@ class ChatRoomViewController: UIViewController {
     }
     
     private func setupInputContainer() {
-        view.addSubview(inputVisualEffectView)
-        inputVisualEffectView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(inputContainerView)
+        inputContainerView.backgroundColor = .systemBackground
+        inputContainerView.translatesAutoresizingMaskIntoConstraints = false
         
-        textField.placeholder = "Nhập tin nhắn..."
-        textField.borderStyle = .none
-        textField.backgroundColor = .systemBackground
-        textField.layer.cornerRadius = 20
-        textField.clipsToBounds = true
-        textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
-        textField.leftViewMode = .always
-        textField.font = .systemFont(ofSize: 15)
-        textField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
-        
-        let attachImg = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium))
+        let attachImg = UIImage(systemName: "plus.circle", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22))
         attachButton.setImage(attachImg, for: .normal)
         attachButton.tintColor = .secondaryLabel
         attachButton.addTarget(self, action: #selector(didTapAttach), for: .touchUpInside)
         
-        let sendImg = UIImage(systemName: "arrow.up.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 32))
-        sendButton.setImage(sendImg, for: .normal)
-        sendButton.tintColor = .systemBlue
-        sendButton.addTarget(self, action: #selector(didTapSend), for: .touchUpInside)
+        textFieldContainer.backgroundColor = .systemGray6
+        textFieldContainer.layer.cornerRadius = 20
+        textFieldContainer.translatesAutoresizingMaskIntoConstraints = false
         
-        inputVisualEffectView.contentView.addSubview(attachButton)
-        inputVisualEffectView.contentView.addSubview(textField)
-        inputVisualEffectView.contentView.addSubview(sendButton)
-        
-        attachButton.translatesAutoresizingMaskIntoConstraints = false
+        textField.placeholder = "Nhập tin nhắn..."
+        textField.borderStyle = .none
+        textField.font = .systemFont(ofSize: 15)
+        textField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
         textField.translatesAutoresizingMaskIntoConstraints = false
+        
+        let emojiImg = UIImage(systemName: "face.smiling")
+        emojiButton.setImage(emojiImg, for: .normal)
+        emojiButton.tintColor = .secondaryLabel
+        emojiButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        let micImg = UIImage(systemName: "mic")
+        micButton.setImage(micImg, for: .normal)
+        micButton.tintColor = .secondaryLabel
+        micButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        let sendImg = UIImage(systemName: "paperplane.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18))
+        sendButton.setImage(sendImg, for: .normal)
+        sendButton.tintColor = .white
+        sendButton.backgroundColor = .systemBlue
+        sendButton.layer.cornerRadius = 18
+        sendButton.addTarget(self, action: #selector(didTapSend), for: .touchUpInside)
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         
-        inputBottomConstraint = inputVisualEffectView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        textFieldContainer.addSubview(textField)
+        textFieldContainer.addSubview(emojiButton)
+        textFieldContainer.addSubview(micButton)
+        
+        inputContainerView.addSubview(attachButton)
+        inputContainerView.addSubview(textFieldContainer)
+        inputContainerView.addSubview(sendButton)
+        attachButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        inputBottomConstraint = inputContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         
         NSLayoutConstraint.activate([
-            inputVisualEffectView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            inputVisualEffectView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            inputContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            inputContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             inputBottomConstraint,
-            inputVisualEffectView.heightAnchor.constraint(equalToConstant: 64),
+            inputContainerView.heightAnchor.constraint(equalToConstant: 60),
             
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: inputVisualEffectView.topAnchor),
+            tableView.bottomAnchor.constraint(equalTo: inputContainerView.topAnchor),
             
-            attachButton.centerYAnchor.constraint(equalTo: inputVisualEffectView.contentView.centerYAnchor),
-            attachButton.leadingAnchor.constraint(equalTo: inputVisualEffectView.contentView.leadingAnchor, constant: 12),
-            attachButton.widthAnchor.constraint(equalToConstant: 36),
-            attachButton.heightAnchor.constraint(equalToConstant: 36),
+            attachButton.leadingAnchor.constraint(equalTo: inputContainerView.leadingAnchor, constant: 12),
+            attachButton.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
+            attachButton.widthAnchor.constraint(equalToConstant: 30),
+            attachButton.heightAnchor.constraint(equalToConstant: 30),
             
-            textField.centerYAnchor.constraint(equalTo: inputVisualEffectView.contentView.centerYAnchor),
-            textField.leadingAnchor.constraint(equalTo: attachButton.trailingAnchor, constant: 8),
-            textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -12),
-            textField.heightAnchor.constraint(equalToConstant: 40),
+            textFieldContainer.leadingAnchor.constraint(equalTo: attachButton.trailingAnchor, constant: 12),
+            textFieldContainer.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
+            textFieldContainer.heightAnchor.constraint(equalToConstant: 40),
+            textFieldContainer.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -12),
             
-            sendButton.centerYAnchor.constraint(equalTo: inputVisualEffectView.contentView.centerYAnchor),
-            sendButton.trailingAnchor.constraint(equalTo: inputVisualEffectView.contentView.trailingAnchor, constant: -16),
+            textField.leadingAnchor.constraint(equalTo: textFieldContainer.leadingAnchor, constant: 16),
+            textField.centerYAnchor.constraint(equalTo: textFieldContainer.centerYAnchor),
+            textField.trailingAnchor.constraint(equalTo: emojiButton.leadingAnchor, constant: -8),
+            
+            micButton.trailingAnchor.constraint(equalTo: textFieldContainer.trailingAnchor, constant: -12),
+            micButton.centerYAnchor.constraint(equalTo: textFieldContainer.centerYAnchor),
+            micButton.widthAnchor.constraint(equalToConstant: 24),
+            
+            emojiButton.trailingAnchor.constraint(equalTo: micButton.leadingAnchor, constant: -8),
+            emojiButton.centerYAnchor.constraint(equalTo: textFieldContainer.centerYAnchor),
+            emojiButton.widthAnchor.constraint(equalToConstant: 24),
+            
+            sendButton.trailingAnchor.constraint(equalTo: inputContainerView.trailingAnchor, constant: -12),
+            sendButton.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 36),
             sendButton.heightAnchor.constraint(equalToConstant: 36)
         ])
@@ -161,7 +229,7 @@ class ChatRoomViewController: UIViewController {
         view.addSubview(typingIndicatorLabel)
         typingIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            typingIndicatorLabel.bottomAnchor.constraint(equalTo: inputVisualEffectView.topAnchor, constant: -4),
+            typingIndicatorLabel.bottomAnchor.constraint(equalTo: inputContainerView.topAnchor, constant: -4),
             typingIndicatorLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16)
         ])
     }
@@ -326,7 +394,6 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
     }
     
     func webSocketDidDisconnect(error: Error?) {
-        print("Mất kết nối WebSocket: \(String(describing: error?.localizedDescription))")
     }
     
     func webSocketDidReceiveEvent(type: String, payload: [String: Any]) {

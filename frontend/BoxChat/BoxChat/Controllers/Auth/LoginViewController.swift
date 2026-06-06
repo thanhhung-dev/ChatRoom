@@ -2,95 +2,100 @@ import UIKit
 
 class LoginViewController: UIViewController {
     
-    private let backgroundGradient = CAGradientLayer()
-    private var cardCenterYConstraint: NSLayoutConstraint?
+    // MARK: - Ambient Background
+    private let ambientOrb1 = UIView()
+    private let ambientOrb2 = UIView()
+    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
     
-    private let cardShadowView: UIView = {
-            let v = UIView()
-            v.backgroundColor = .clear
-            v.layer.shadowColor = UIColor.black.cgColor
-            v.layer.shadowOpacity = 0.12
-            v.layer.shadowRadius = 25
-            v.layer.shadowOffset = CGSize(width: 0, height: 12)
-            return v
-        }()
-    
-    private let glassCardView: UIVisualEffectView = {
-        let blurEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-        let v = UIVisualEffectView(effect: blurEffect)
-        v.layer.cornerRadius = 28
-        v.layer.masksToBounds = true
-        v.layer.borderWidth = 1
-        v.layer.borderColor = UIColor.white.withAlphaComponent(0.25).cgColor
-        return v
+    // MARK: - UI Components
+    private lazy var backButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        btn.setImage(UIImage(systemName: "arrow.left", withConfiguration: config), for: .normal)
+        btn.tintColor = .systemBlue
+        btn.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        return btn
     }()
     
     private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "BoxChat"
-        label.font = .systemFont(ofSize: 44, weight: .heavy)
-        label.textColor = .label
-        label.textAlignment = .center
-        return label
+        let l = UILabel()
+        l.text = "Đăng nhập"
+        l.font = .systemFont(ofSize: 32, weight: .heavy)
+        l.textColor = .label
+        return l
     }()
     
     private let subtitleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Chào mừng trở lại! Vui lòng đăng nhập."
-        label.font = .systemFont(ofSize: 15, weight: .medium)
-        label.textColor = .secondaryLabel
-        label.textAlignment = .center
-        return label
+        let l = UILabel()
+        l.text = "Chào mừng trở lại!"
+        l.font = .systemFont(ofSize: 15, weight: .medium)
+        l.textColor = .secondaryLabel
+        return l
     }()
     
-    private lazy var usernameField: UITextField = createCustomTextField(
+    private lazy var usernameField: UITextField = createTextField(
         placeholder: "Tên đăng nhập",
-        iconName: "person.fill",
+        title: "Tên đăng nhập",
         isSecure: false
     )
+    private lazy var passwordField: UITextField = createTextField(placeholder: "••••••••", title: "Mật khẩu", isSecure: true)
     
-    private lazy var passwordField: UITextField = createCustomTextField(
-        placeholder: "Mật khẩu",
-        iconName: "lock.fill",
-        isSecure: true
-    )
-    
-    private let actionButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Đăng nhập", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
-        button.backgroundColor = .systemBlue
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 22
-        
-        button.layer.shadowColor = UIColor.systemBlue.cgColor
-        button.layer.shadowOpacity = 0.35
-        button.layer.shadowRadius = 10
-        button.layer.shadowOffset = CGSize(width: 0, height: 5)
-        
-        button.addTarget(self, action: #selector(didTapLogin), for: .touchUpInside)
-        return button
-    }()
-    
-    private let activityIndicator: UIActivityIndicatorView = {
-        let ai = UIActivityIndicatorView(style: .medium)
-        ai.color = .white
-        ai.hidesWhenStopped = true
-        return ai
-    }()
-    
-    private let bottomPromptButton: UIButton = {
+    private lazy var forgotPasswordButton: UIButton = {
         let btn = UIButton(type: .system)
-        let attrTitle = NSMutableAttributedString(
-            string: "Chưa có tài khoản? ",
-            attributes: [.foregroundColor: UIColor.secondaryLabel, .font: UIFont.systemFont(ofSize: 15, weight: .medium)]
-        )
-        attrTitle.append(NSAttributedString(
-            string: "Đăng ký ngay",
-            attributes: [.foregroundColor: UIColor.systemBlue, .font: UIFont.systemFont(ofSize: 15, weight: .bold)]
-        ))
-        btn.setAttributedTitle(attrTitle, for: .normal)
-        btn.addTarget(self, action: #selector(didTapSignUpPrompt), for: .touchUpInside)
+        btn.setTitle("Quên mật khẩu?", for: .normal)
+        btn.setTitleColor(.systemBlue, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        btn.contentHorizontalAlignment = .right
+        btn.addTarget(self, action: #selector(forgotPasswordTapped), for: .touchUpInside)
+        return btn
+    }()
+    
+    private lazy var loginButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("Đăng nhập", for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        btn.setTitleColor(.white, for: .normal)
+        btn.backgroundColor = .systemBlue
+        btn.layer.cornerRadius = 24
+        btn.layer.cornerCurve = .continuous
+        btn.layer.shadowColor = UIColor.systemBlue.cgColor
+        btn.layer.shadowOpacity = 0.3
+        btn.layer.shadowRadius = 12
+        btn.layer.shadowOffset = CGSize(width: 0, height: 6)
+        btn.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
+        return btn
+    }()
+    
+    private let dividerLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Hoặc tiếp tục với"
+        l.font = .systemFont(ofSize: 13, weight: .medium)
+        l.textColor = .secondaryLabel
+        l.textAlignment = .center
+        return l
+    }()
+    
+    private lazy var socialStack: UIStackView = {
+        let sv = UIStackView()
+        sv.axis = .horizontal
+        sv.spacing = 20
+        sv.alignment = .center
+        sv.distribution = .equalSpacing
+        
+        let googleBtn = createSocialButton(imageName: "G_logo", sfSymbol: nil, tint: UIColor(red: 0.85, green: 0.26, blue: 0.21, alpha: 1))
+        let appleBtn  = createSocialButton(imageName: nil, sfSymbol: "apple.logo", tint: .label)
+        let emailBtn  = createSocialButton(imageName: nil, sfSymbol: "envelope.fill", tint: .systemBlue)
+        
+        [googleBtn, appleBtn, emailBtn].forEach { sv.addArrangedSubview($0) }
+        return sv
+    }()
+    
+    private lazy var registerPromptButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let attr = NSMutableAttributedString(string: "Chưa có tài khoản? ", attributes: [.foregroundColor: UIColor.secondaryLabel, .font: UIFont.systemFont(ofSize: 14, weight: .medium)])
+        attr.append(NSAttributedString(string: "Đăng ký", attributes: [.foregroundColor: UIColor.systemBlue, .font: UIFont.systemFont(ofSize: 14, weight: .bold)]))
+        btn.setAttributedTitle(attr, for: .normal)
+        btn.addTarget(self, action: #selector(switchToRegister), for: .touchUpInside)
         return btn
     }()
     
@@ -98,234 +103,295 @@ class LoginViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        navigationController?.setNavigationBarHidden(true, animated: false)
         
-        setupBackground()
+        setupAmbientBackground()
         setupLayout()
-        setupKeyboardObservers()
+        setupButtonAnimations()
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         view.addGestureRecognizer(tap)
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        backgroundGradient.frame = view.bounds
+        blurEffectView.frame = view.bounds
     }
     
-    private func setupBackground() {
-        backgroundGradient.colors = [
-            UIColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 1.0).cgColor,
-            UIColor(red: 0.85, green: 0.88, blue: 0.98, alpha: 1.0).cgColor
-        ]
+    // MARK: - Setup
+    private func setupAmbientBackground() {
+        ambientOrb1.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+        ambientOrb1.frame = CGRect(x: -50, y: -50, width: 300, height: 300)
+        ambientOrb1.layer.cornerRadius = 150
+        ambientOrb1.layer.masksToBounds = true
+        view.addSubview(ambientOrb1)
         
-        if traitCollection.userInterfaceStyle == .dark {
-            backgroundGradient.colors = [
-                UIColor(red: 0.06, green: 0.09, blue: 0.16, alpha: 1.0).cgColor,
-                UIColor(red: 0.02, green: 0.04, blue: 0.08, alpha: 1.0).cgColor
-            ]
-        }
+        ambientOrb2.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.1)
+        ambientOrb2.frame = CGRect(x: view.bounds.width - 200, y: 300, width: 250, height: 250)
+        ambientOrb2.layer.cornerRadius = 125
+        ambientOrb2.layer.masksToBounds = true
+        view.addSubview(ambientOrb2)
         
-        backgroundGradient.startPoint = CGPoint(x: 0, y: 0)
-        backgroundGradient.endPoint = CGPoint(x: 1, y: 1)
-        view.layer.insertSublayer(backgroundGradient, at: 0)
+        view.addSubview(blurEffectView)
+        
+        animateOrbs()
     }
     
     private func setupLayout() {
-        view.addSubview(cardShadowView)
-        cardShadowView.addSubview(glassCardView)
-        view.addSubview(bottomPromptButton)
+        let safeArea = view.safeAreaLayoutGuide
+        let components = [
+            backButton,
+            titleLabel,
+            subtitleLabel,
+            usernameField,
+            passwordField,
+            forgotPasswordButton,
+            loginButton,
+            dividerLabel,
+            socialStack,
+            registerPromptButton
+        ]
         
-        cardShadowView.translatesAutoresizingMaskIntoConstraints = false
-        glassCardView.translatesAutoresizingMaskIntoConstraints = false
-        bottomPromptButton.translatesAutoresizingMaskIntoConstraints = false
-        
-        let textFieldsStack = UIStackView(arrangedSubviews: [usernameField, passwordField])
-        textFieldsStack.axis = .vertical
-        textFieldsStack.spacing = 16
-        
-        let mainStack = UIStackView(arrangedSubviews: [
-            titleLabel, subtitleLabel, textFieldsStack, actionButton
-        ])
-        mainStack.axis = .vertical
-        mainStack.spacing = 24
-        mainStack.setCustomSpacing(8, after: titleLabel)
-        mainStack.setCustomSpacing(28, after: textFieldsStack)
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
-        
-        glassCardView.contentView.addSubview(mainStack)
-        actionButton.addSubview(activityIndicator)
-        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-        
-        cardCenterYConstraint = cardShadowView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -10)
+        components.forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview($0)
+        }
         
         NSLayoutConstraint.activate([
-            cardCenterYConstraint!,
-            cardShadowView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            cardShadowView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            backButton.topAnchor.constraint(equalTo: safeArea.topAnchor, constant: 16),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
             
-            glassCardView.topAnchor.constraint(equalTo: cardShadowView.topAnchor),
-            glassCardView.bottomAnchor.constraint(equalTo: cardShadowView.bottomAnchor),
-            glassCardView.leadingAnchor.constraint(equalTo: cardShadowView.leadingAnchor),
-            glassCardView.trailingAnchor.constraint(equalTo: cardShadowView.trailingAnchor),
+            titleLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 24),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
             
-            mainStack.topAnchor.constraint(equalTo: glassCardView.topAnchor, constant: 36),
-            mainStack.leadingAnchor.constraint(equalTo: glassCardView.leadingAnchor, constant: 24),
-            mainStack.trailingAnchor.constraint(equalTo: glassCardView.trailingAnchor, constant: -24),
-            mainStack.bottomAnchor.constraint(equalTo: glassCardView.bottomAnchor, constant: -36),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            subtitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
             
-            usernameField.heightAnchor.constraint(equalToConstant: 54),
-            passwordField.heightAnchor.constraint(equalToConstant: 54),
-            actionButton.heightAnchor.constraint(equalToConstant: 50),
+            usernameField.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 40),
+            usernameField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            usernameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             
-            activityIndicator.centerXAnchor.constraint(equalTo: actionButton.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: actionButton.centerYAnchor),
+            passwordField.topAnchor.constraint(equalTo: usernameField.bottomAnchor, constant: 24),
+            passwordField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            passwordField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             
-            bottomPromptButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            bottomPromptButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            forgotPasswordButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 12),
+            forgotPasswordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            
+            loginButton.topAnchor.constraint(equalTo: forgotPasswordButton.bottomAnchor, constant: 32),
+            loginButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            loginButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            loginButton.heightAnchor.constraint(equalToConstant: 54),
+            
+            dividerLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 40),
+            dividerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            socialStack.topAnchor.constraint(equalTo: dividerLabel.bottomAnchor, constant: 24),
+            socialStack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            socialStack.heightAnchor.constraint(equalToConstant: 54),
+            
+            registerPromptButton.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor, constant: -16),
+            registerPromptButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
     }
     
-    private func createCustomTextField(placeholder: String, iconName: String, isSecure: Bool) -> UITextField {
-        let tf = UITextField()
-        tf.placeholder = placeholder
-        tf.isSecureTextEntry = isSecure
-        tf.autocapitalizationType = .none
-        tf.font = .systemFont(ofSize: 16)
+    // MARK: - Helpers
+    private func createTextField(placeholder: String, title: String, isSecure: Bool) -> UITextField {
+        let container = UITextField()
+        container.placeholder = placeholder
+        container.isSecureTextEntry = isSecure
         
-        // Background Kính tinh tế hơn cho ô nhập liệu
-        tf.backgroundColor = UIColor.label.withAlphaComponent(0.04)
-        tf.layer.cornerRadius = 14
-        tf.clipsToBounds = true
+        container.autocapitalizationType = .none
+        container.autocorrectionType = .no
+        container.font = .systemFont(ofSize: 16)
+        container.backgroundColor = UIColor.label.withAlphaComponent(0.04)
+        container.layer.cornerRadius = 16
+        container.layer.cornerCurve = .continuous
+        container.heightAnchor.constraint(equalToConstant: 54).isActive = true
         
-        let iconView = UIImageView(image: UIImage(systemName: iconName))
-        iconView.tintColor = .secondaryLabel
-        iconView.contentMode = .scaleAspectFit
+        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: 20, height: 54))
+        container.leftView = paddingView
+        container.leftViewMode = .always
         
-        let iconContainer = UIView(frame: CGRect(x: 0, y: 0, width: 46, height: 54))
-        iconView.frame = CGRect(x: 16, y: 17, width: 20, height: 20)
-        iconContainer.addSubview(iconView)
+        let titleLbl = UILabel()
+        titleLbl.text = title
+        titleLbl.font = .systemFont(ofSize: 13, weight: .medium)
+        titleLbl.textColor = .secondaryLabel
+        titleLbl.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(titleLbl)
         
-        tf.leftView = iconContainer
-        tf.leftViewMode = .always
+        DispatchQueue.main.async {
+            NSLayoutConstraint.activate([
+                titleLbl.bottomAnchor.constraint(equalTo: container.topAnchor, constant: -8),
+                titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4)
+            ])
+        }
         
         if isSecure {
-            let eyeButton = UIButton(type: .custom)
-            eyeButton.setImage(UIImage(systemName: "eye.slash.fill"), for: .normal)
-            eyeButton.setImage(UIImage(systemName: "eye.fill"), for: .selected)
-            eyeButton.tintColor = .secondaryLabel
-            eyeButton.frame = CGRect(x: 0, y: 0, width: 46, height: 54)
-            eyeButton.addTarget(self, action: #selector(togglePasswordVisibility(_:)), for: .touchUpInside)
-            
-            tf.rightView = eyeButton
-            tf.rightViewMode = .always
-        } else {
-            tf.clearButtonMode = .whileEditing
+            let rightPadding = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 54))
+            let eyeBtn = UIButton(type: .custom)
+            eyeBtn.setImage(UIImage(systemName: "eye.slash"), for: .normal)
+            eyeBtn.setImage(UIImage(systemName: "eye"), for: .selected)
+            eyeBtn.tintColor = .secondaryLabel
+            eyeBtn.frame = CGRect(x: 0, y: 0, width: 44, height: 54)
+            eyeBtn.addTarget(self, action: #selector(toggleEye(_:)), for: .touchUpInside)
+            rightPadding.addSubview(eyeBtn)
+            container.rightView = rightPadding
+            container.rightViewMode = .always
+        }
+        return container
+    }
+    
+    private func createSocialButton(imageName: String?, sfSymbol: String?, tint: UIColor) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.backgroundColor = .systemBackground
+        btn.layer.cornerRadius = 27
+        btn.layer.borderWidth = 1
+        btn.layer.borderColor = UIColor.label.withAlphaComponent(0.1).cgColor
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        
+        if let symbol = sfSymbol, let img = UIImage(systemName: symbol) {
+            btn.setImage(img.withRenderingMode(.alwaysOriginal).withTintColor(tint), for: .normal)
+        } else if let _ = imageName {
+            let l = UILabel()
+            l.text = "G"
+            l.font = .systemFont(ofSize: 20, weight: .bold)
+            l.textColor = tint
+            l.translatesAutoresizingMaskIntoConstraints = false
+            btn.addSubview(l)
+            NSLayoutConstraint.activate([
+                l.centerXAnchor.constraint(equalTo: btn.centerXAnchor),
+                l.centerYAnchor.constraint(equalTo: btn.centerYAnchor)
+            ])
         }
         
-        return tf
+        NSLayoutConstraint.activate([
+            btn.widthAnchor.constraint(equalToConstant: 54),
+            btn.heightAnchor.constraint(equalToConstant: 54)
+        ])
+        return btn
     }
     
-    @objc private func togglePasswordVisibility(_ sender: UIButton) {
+    // MARK: - Actions
+    private func animateOrbs() {
+        UIView.animate(withDuration: 8.0, delay: 0, options: [.repeat, .autoreverse, .curveEaseInOut]) {
+            self.ambientOrb1.transform = CGAffineTransform(translationX: 40, y: 30).scaledBy(x: 1.1, y: 1.1)
+            self.ambientOrb2.transform = CGAffineTransform(translationX: -30, y: -40).scaledBy(x: 1.2, y: 1.2)
+        } completion: { _ in }
+    }
+    
+    private func setupButtonAnimations() {
+        let buttons = [loginButton]
+        for btn in buttons {
+            btn.addTarget(self, action: #selector(btnDown(_:)), for: .touchDown)
+            btn.addTarget(self, action: #selector(btnUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        }
+    }
+    
+    @objc private func btnDown(_ sender: UIButton) {
+        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseIn) {
+            sender.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+            sender.alpha = 0.9
+        } completion: { _ in }
+    }
+    
+    @objc private func btnUp(_ sender: UIButton) {
+        UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.8, options: []) {
+            sender.transform = .identity
+            sender.alpha = 1
+        } completion: { _ in }
+    }
+    
+    @objc private func toggleEye(_ sender: UIButton) {
         sender.isSelected.toggle()
         passwordField.isSecureTextEntry = !sender.isSelected
-    }
-    
-    // MARK: - Keyboard Handling
-    private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
-    }
-    
-    @objc private func keyboardWillShow(notification: NSNotification) {
-        if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue {
-            let keyboardHeight = keyboardFrame.cgRectValue.height
-            let targetY = (view.frame.height - keyboardHeight) / 2
-            let cardHeight = cardShadowView.frame.height
-            
-            if targetY < cardHeight / 2 + 40 {
-                UIView.animate(withDuration: 0.3) {
-                    self.cardCenterYConstraint?.constant = -(keyboardHeight / 2 - 20)
-                    self.view.layoutIfNeeded()
-                }
-            }
-        }
-    }
-    
-    @objc private func keyboardWillHide() {
-        UIView.animate(withDuration: 0.3) {
-            self.cardCenterYConstraint?.constant = -10
-            self.view.layoutIfNeeded()
-        }
     }
     
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
     
-    // MARK: - Actions
-    @objc private func didTapSignUpPrompt() {
-        let registerVC = RegisterViewController()
-        registerVC.modalPresentationStyle = .fullScreen // Chuyển full màn hình cho trải nghiệm mượt mà hơn formSheet
-        present(registerVC, animated: true)
+    @objc private func backTapped() {
+        navigationController?.popViewController(animated: true)
     }
     
-    @objc private func didTapLogin() {
-        guard let username = usernameField.text, !username.isEmpty,
-              let password = passwordField.text, !password.isEmpty else {
-            showAlert(message: "Vui lòng nhập đầy đủ thông tin.")
+    @objc private func switchToRegister() {
+        let vc = RegisterViewController()
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    @objc private func forgotPasswordTapped() {
+        let vc = ForgotPasswordViewController()
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    @objc private func loginTapped() {
+        
+        dismissKeyboard()
+        
+        guard let username = usernameField.text,
+              !username.isEmpty,
+              let password = passwordField.text,
+              !password.isEmpty
+        else {
+            showAlert(message: "Vui lòng nhập đầy đủ thông tin")
             return
         }
         
-        dismissKeyboard()
-        activityIndicator.startAnimating()
-        actionButton.setTitle("", for: .normal)
-        actionButton.isEnabled = false
+        loginButton.isEnabled = false
         
-        let params = ["username": username, "password": password]
-        NetworkManager.shared.login(params: params) { [weak self] result in
-            self?.handleAuthResult(result)
-        }
-    }
-    
-    private func handleAuthResult(_ result: Result<AuthData, Error>) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
+        NetworkManager.shared.login(
+            params: [
+                "username": username,
+                "password": password
+            ]
+        ) { [weak self] result in
             
-            self.activityIndicator.stopAnimating()
-            self.actionButton.setTitle("Đăng nhập", for: .normal)
-            self.actionButton.isEnabled = true
-            
-            switch result {
-            case .success:
-                WebSocketService.shared.connect()
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let sceneDelegate = windowScene.delegate as? SceneDelegate,
-                   let window = sceneDelegate.window {
+            DispatchQueue.main.async {
+                
+                self?.loginButton.isEnabled = true
+                
+                switch result {
                     
-                    let mainTabBarVC = MainTabBarController()
-                    window.rootViewController = mainTabBarVC
-                    UIView.transition(with: window, duration: 0.4, options: .transitionCrossDissolve, animations: nil, completion: nil)
+                case .success:
+                    WebSocketService.shared.connect()
+                    
+                    guard
+                        let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                        let sceneDelegate = windowScene.delegate as? SceneDelegate,
+                        let window = sceneDelegate.window
+                    else { return }
+                    
+                    UIView.transition(
+                        with: window,
+                        duration: 0.35,
+                        options: .transitionCrossDissolve,
+                        animations: { window.rootViewController = MainTabBarController() }
+                    )
+                    
+                case .failure(let error):
+                    self?.showAlert(message: error.localizedDescription)
                 }
-            case .failure(let error):
-                self.showAlert(message: error.localizedDescription)
             }
         }
     }
-    
     private func showAlert(message: String) {
-        let alert = UIAlertController(title: "Thông báo", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đã hiểu", style: .default))
+        
+        let alert = UIAlertController(
+            title: "Thông báo",
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(
+            UIAlertAction(
+                title: "OK",
+                style: .default
+            )
+        )
+        
         present(alert, animated: true)
-    }
-    
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            setupBackground()
-        }
     }
 }
