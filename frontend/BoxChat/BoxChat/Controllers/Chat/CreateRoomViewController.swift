@@ -2,10 +2,8 @@ import UIKit
 
 class CreateRoomViewController: UIViewController {
     
-    // Callback thông báo cho màn hình danh sách biết để tải lại dữ liệu
     var onDataChanged: (() -> Void)?
     
-    // Thuộc tính xác định xem đây là tab Tạo phòng hay Tham gia phòng
     private var isCreateMode = true
     
     // MARK: - UI Components
@@ -158,7 +156,6 @@ class CreateRoomViewController: UIViewController {
         isCreateMode = segmentControl.selectedSegmentIndex == 0
         dismissKeyboard()
         
-        // Cập nhật giao diện mượt mà dựa theo chế độ đang chọn
         UIView.transition(with: view, duration: 0.25, options: .transitionCrossDissolve, animations: {
             if self.isCreateMode {
                 self.mainInputField.placeholder = "Tên phòng chat (bắt buộc)"
@@ -184,7 +181,6 @@ class CreateRoomViewController: UIViewController {
         setLoading(true)
         
         if isCreateMode {
-            // Xử lý logic Tạo phòng
             NetworkManager.shared.createRoom(name: firstInput, description: subInputField.text) { [weak self] result in
                 DispatchQueue.main.async {
                     self?.setLoading(false)
@@ -199,7 +195,6 @@ class CreateRoomViewController: UIViewController {
                 }
             }
         } else {
-            // Xử lý logic Tham gia phòng bằng mã mời
             NetworkManager.shared.joinRoom(inviteCode: firstInput) { [weak self] result in
                 DispatchQueue.main.async {
                     self?.setLoading(false)
