@@ -2,6 +2,7 @@ import Foundation
 
 struct Room: Codable {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     let id: Int
     var name: String
     var description: String?
@@ -56,6 +57,8 @@ struct Room: Codable {
         try c.encode(memberCount, forKey: .memberCount)
     }
 =======
+=======
+>>>>>>> Stashed changes
   let id: Int
   var name: String
   var description: String?
@@ -94,6 +97,9 @@ struct Room: Codable {
     unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
     createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }
 
@@ -135,6 +141,7 @@ struct RoomMember: Codable {
       username = try c.decode(String.self, forKey: .username)
       displayName = try c.decodeIfPresent(String.self, forKey: .displayName) ?? username
       isOnline = try c.decodeIfPresent(Bool.self, forKey: .isOnline) ?? false
+<<<<<<< Updated upstream
     }
 <<<<<<< Updated upstream
 
@@ -148,6 +155,9 @@ struct RoomMember: Codable {
         try c.encode(joinedAt, forKey: .joinedAt)
     }
 =======
+=======
+    }
+>>>>>>> Stashed changes
     role = try c.decodeIfPresent(String.self, forKey: .role) ?? "member"
     joinedAt = try c.decodeIfPresent(String.self, forKey: .joinedAt) ?? ""
   }
@@ -161,5 +171,8 @@ struct RoomMember: Codable {
     try c.encode(isOnline, forKey: .isOnline)
     try c.encode(joinedAt, forKey: .joinedAt)
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }

@@ -10,6 +10,7 @@ import UIKit
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
   var window: UIWindow?
+<<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
 
@@ -19,6 +20,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let _ = (scene as? UIWindowScene) else { return }
 =======
+=======
+
+>>>>>>> Stashed changes
   func scene(
     _ scene: UIScene, willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
@@ -54,6 +58,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options: .transitionCrossDissolve,
         animations: { window.rootViewController = splash }
       )
+<<<<<<< Updated upstream
 >>>>>>> Stashed changes
     }
   }
@@ -89,11 +94,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
 =======
+=======
+    }
+  }
+
+>>>>>>> Stashed changes
   // MARK: - Scene Lifecycle
 
   func sceneDidDisconnect(_ scene: UIScene) {
     NotificationCenter.default.removeObserver(self, name: .didLogoutRequired, object: nil)
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }
 

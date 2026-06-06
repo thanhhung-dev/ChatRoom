@@ -2,6 +2,7 @@ import Foundation
 
 struct Constants {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     
     #if targetEnvironment(simulator)
     static let apiBaseURL = "http://127.0.0.1:8000/api/v1"
@@ -34,6 +35,12 @@ struct Constants {
   #if targetEnvironment(simulator)
     static let apiBaseURL = "http://127.0.0.1:8000/api/v1"
     static let webSocketURL = "ws://127.0.0.1:8000/ws"
+=======
+
+  #if targetEnvironment(simulator)
+    static let apiBaseURL = "http://127.0.0.1:8000/api/v1"
+    static let webSocketURL = "ws://127.0.0.1:8000/ws"
+>>>>>>> Stashed changes
 
   #else
     static let apiBaseURL = "http://192.168.0.6:8000/api/v1"
@@ -48,5 +55,8 @@ struct Constants {
     let base = apiBaseURL.replacingOccurrences(of: "/api/v1", with: "")
     return URL(string: base + rawValue)
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }

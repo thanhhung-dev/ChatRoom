@@ -275,6 +275,7 @@ extension NetworkManager {
     if let q = search, !q.isEmpty { path += "&search=\(q)" }
     request(path: path, completion: completion)
   }
+<<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
     func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
@@ -291,6 +292,12 @@ extension NetworkManager {
         request(path: "/rooms", method: "POST", body: body, completion: completion)
     }
 =======
+  func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
+    request(path: "/rooms/\(roomId)", completion: completion)
+  }
+>>>>>>> Stashed changes
+=======
+
   func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
     request(path: "/rooms/\(roomId)", completion: completion)
   }
@@ -335,6 +342,7 @@ extension NetworkManager {
       }
     }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     func updateRoom(roomId: Int, name: String?, description: String?, completion: @escaping (Result<Room, Error>) -> Void) {
         var body: [String: Any] = [:]
@@ -352,15 +360,122 @@ extension NetworkManager {
             completion(.failure(NetworkError.invalidURL))
             return
         }
+=======
+  }
 
-        let boundary = "Boundary-\(UUID().uuidString)"
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        if let token = TokenManager.shared.accessToken {
-            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+  func regenerateInviteCode(
+    roomId: Int, completion: @escaping (Result<InviteCodeResponse, Error>) -> Void
+  ) {
+    request(path: "/rooms/\(roomId)/invite-code", method: "POST", completion: completion)
+  }
 
+  func updateRoom(
+    roomId: Int, name: String?, description: String?,
+    completion: @escaping (Result<Room, Error>) -> Void
+  ) {
+    var body: [String: Any] = [:]
+    if let name { body["name"] = name }
+    if let description { body["description"] = description }
+    request(path: "/rooms/\(roomId)", method: "PATCH", body: body, completion: completion)
+  }
+
+  func kickMember(roomId: Int, userId: Int, completion: @escaping (Result<Bool, Error>) -> Void) {
+    struct Resp: Codable { let message: String? }
+    request(path: "/rooms/\(roomId)/members/\(userId)", method: "DELETE") {
+      (result: Result<Resp, Error>) in
+      switch result {
+      case .success: completion(.success(true))
+      case .failure(let err): completion(.failure(err))
+      }
+    }
+  }
+
+  func makeAdmin(roomId: Int, userId: Int, completion: @escaping (Result<Bool, Error>) -> Void) {
+    struct Resp: Codable {}
+    request(path: "/rooms/\(roomId)/members/\(userId)/make-admin", method: "POST") {
+      (result: Result<Resp, Error>) in
+      switch result {
+      case .success: completion(.success(true))
+      case .failure(let err): completion(.failure(err))
+      }
+    }
+  }
+
+  struct InviteCodeResponse: Codable {
+    let inviteCode: String
+    enum CodingKeys: String, CodingKey { case inviteCode = "invite_code" }
+  }
+}
+
+// MARK: - Message APIs
+
+extension NetworkManager {
+
+  func fetchMessages(
+    roomId: Int, page: Int = 1, beforeId: Int? = nil,
+    completion: @escaping (Result<PaginatedResponse<Message>, Error>) -> Void
+  ) {
+    var path = "/rooms/\(roomId)/messages?page=\(page)&per_page=50"
+    if let bid = beforeId { path += "&before_id=\(bid)" }
+    request(path: path, completion: completion)
+  }
+
+  func sendMessage(
+    roomId: Int, content: String, completion: @escaping (Result<Message, Error>) -> Void
+  ) {
+    request(
+      path: "/rooms/\(roomId)/messages",
+      method: "POST",
+      body: ["content": content, "message_type": "text"],
+      completion: completion
+    )
+  }
+
+  func uploadFile(
+    roomId: Int,
+    fileData: Data,
+    fileName: String,
+    mimeType: String,
+    caption: String? = nil,
+    completion: @escaping (Result<Message, Error>) -> Void
+  ) {
+    uploadMultipart(
+      path: "/rooms/\(roomId)/messages/file",
+      fileData: fileData,
+      fileName: fileName,
+      mimeType: mimeType,
+      extraFields: caption.map { ["content": $0] } ?? [:],
+      completion: completion
+    )
+  }
+
+  private func uploadMultipart<T: Codable>(
+    path: String,
+    fileData: Data,
+    fileName: String,
+    mimeType: String,
+    extraFields: [String: String] = [:],
+    completion: @escaping (Result<T, Error>) -> Void
+  ) {
+    guard let url = URL(string: "\(Constants.apiBaseURL)\(path)") else {
+      completion(.failure(NetworkError.invalidURL))
+      return
+    }
+
+    let boundary = "Boundary-\(UUID().uuidString)"
+    var urlRequest = URLRequest(url: url)
+    urlRequest.httpMethod = "POST"
+    urlRequest.timeoutInterval = 30
+    urlRequest.setValue(
+      "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    if let token = TokenManager.shared.accessToken {
+      urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+>>>>>>> Stashed changes
+
+    var bodyData = Data()
+
+<<<<<<< Updated upstream
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8)!)
@@ -368,14 +483,37 @@ extension NetworkManager {
         body.append(imageData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         urlRequest.httpBody = body
+=======
+    bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
+    bodyData.append(
+      "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(
+        using: .utf8)!)
+    bodyData.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+    bodyData.append(fileData)
+    bodyData.append("\r\n".data(using: .utf8)!)
+>>>>>>> Stashed changes
 
-        URLSession.shared.dataTask(with: urlRequest) { [weak self] data, response, error in
-            guard let self = self else { return }
-            if error != nil { completion(.failure(NetworkError.noConnection)); return }
-            guard let data = data else { completion(.failure(NetworkError.noData)); return }
+    for (name, value) in extraFields where !value.isEmpty {
+      bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
+      bodyData.append(
+        "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+      bodyData.append("\(value)\r\n".data(using: .utf8)!)
+    }
+    bodyData.append("--\(boundary)--\r\n".data(using: .utf8)!)
+    urlRequest.httpBody = bodyData
 
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+    URLSession.shared.dataTask(with: urlRequest) { [weak self] data, response, error in
+      guard let self = self else { return }
+      if error != nil {
+        completion(.failure(NetworkError.noConnection))
+        return
+      }
+      guard let data = data else {
+        completion(.failure(NetworkError.noData))
+        return
+      }
 
+<<<<<<< Updated upstream
             if statusCode == 401 {
                 self.refreshAccessToken { success in
                     if success {
@@ -555,6 +693,26 @@ extension NetworkManager {
             DispatchQueue.main.async {
               NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
             }
+=======
+      let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+
+      if statusCode == 401 {
+        self.refreshAccessToken { success in
+          if success {
+            self.uploadMultipart(
+              path: path,
+              fileData: fileData,
+              fileName: fileName,
+              mimeType: mimeType,
+              extraFields: extraFields,
+              completion: completion
+            )
+          } else {
+            TokenManager.shared.clear()
+            DispatchQueue.main.async {
+              NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+            }
+>>>>>>> Stashed changes
             completion(.failure(NetworkError.sessionExpired))
           }
         }

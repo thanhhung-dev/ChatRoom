@@ -23,6 +23,7 @@ class MainTabBarController: UITabBarController {
   }
     
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     private func setupTabBarAppearance() {
         tabBar.tintColor = .systemBlue
         tabBar.unselectedItemTintColor = .systemGray
@@ -65,6 +66,8 @@ class MainTabBarController: UITabBarController {
         viewControllers = [chatNav, friendsNav, profileNav]
     }
 =======
+=======
+>>>>>>> Stashed changes
   private func setupViewControllers() {
     let chatListVC = RoomListViewController()
     let chatNav = UINavigationController(rootViewController: chatListVC)
@@ -108,5 +111,8 @@ class MainTabBarController: UITabBarController {
 
     viewControllers = [chatNav, friendsNav, exploreNav, notificationNav, profileNav]
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }
