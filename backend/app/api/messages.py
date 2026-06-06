@@ -10,7 +10,13 @@ from app.utils.file_storage import save_file
 router = APIRouter(prefix="/api/v1/rooms/{room_id}/messages", tags=["messages"])
 
 
-@router.get("", response_model=MessageListResponse)
+@router.get(
+    "",
+    response_model=MessageListResponse,
+    summary="Lịch sử tin nhắn",
+    description="Lấy tin nhắn trong phòng theo phân trang. Hỗ trợ `before_id` để cuộn "
+    "ngược lịch sử và `search` để tìm theo nội dung. Yêu cầu là thành viên phòng.",
+)
 async def get_messages(
     room_id: int,
     page: int = Query(1, ge=1),
@@ -29,6 +35,9 @@ async def get_messages(
     "/file",
     response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Gửi tin nhắn file",
+    description="Upload file (multipart/form-data) và tạo một tin nhắn dạng file trong phòng. "
+    "File tối đa 10MB; loại file được giới hạn (ảnh/tài liệu).",
 )
 async def upload_file(
     room_id: int,
