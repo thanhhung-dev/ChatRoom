@@ -9,16 +9,56 @@ import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
-    var window: UIWindow?
+  var window: UIWindow?
 
+<<<<<<< Updated upstream
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let _ = (scene as? UIWindowScene) else { return }
-    }
+=======
+  func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = (scene as? UIWindowScene) else { return }
 
+    let window = UIWindow(windowScene: windowScene)
+    self.window = window
+
+    window.rootViewController = SplashViewController()
+    window.makeKeyAndVisible()
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleLogout),
+      name: .didLogoutRequired,
+      object: nil
+    )
+  }
+
+  // MARK: - Logout
+
+  @objc private func handleLogout() {
+    TokenManager.shared.clear()
+    WebSocketService.shared.disconnect()
+
+    DispatchQueue.main.async {
+      guard let window = self.window else { return }
+      let splash = SplashViewController()
+      UIView.transition(
+        with: window,
+        duration: 0.35,
+        options: .transitionCrossDissolve,
+        animations: { window.rootViewController = splash }
+      )
+>>>>>>> Stashed changes
+    }
+  }
+
+<<<<<<< Updated upstream
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
@@ -48,5 +88,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
 
+=======
+  // MARK: - Scene Lifecycle
+
+  func sceneDidDisconnect(_ scene: UIScene) {
+    NotificationCenter.default.removeObserver(self, name: .didLogoutRequired, object: nil)
+  }
+>>>>>>> Stashed changes
 }
 
