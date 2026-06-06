@@ -324,9 +324,9 @@
 ## Phase 7: Polish & Documentation
 
 ### Task 7.1: API documentation
-- [ ] Verify Swagger UI hoạt động tại `/docs`
-- [ ] Verify ReDoc tại `/redoc`
-- [ ] Thêm descriptions cho tất cả endpoints
+- [x] Verify Swagger UI hoạt động tại `/docs`
+- [x] Verify ReDoc tại `/redoc`
+- [x] Thêm descriptions cho tất cả endpoints
 
 ### Task 7.2: Seed data
 - [ ] Tạo script `scripts/seed.py` để tạo test data:
@@ -335,7 +335,7 @@
   - Một số tin nhắn mẫu
 
 ### Task 7.3: README
-- [ ] Cập nhật `README.md` với:
+- [x] Cập nhật `README.md` với:
   - Hướng dẫn cài đặt
   - Hướng dẫn chạy migration
   - Hướng dẫn chạy server
