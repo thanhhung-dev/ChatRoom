@@ -12,7 +12,6 @@ class MainTabBarController: UITabBarController {
         tabBar.tintColor = .systemBlue
         tabBar.unselectedItemTintColor = .systemGray
         
-        // Tạo hiệu ứng nền kính mờ sang trọng cho Tab Bar
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundEffect = UIBlurEffect(style: .systemChromeMaterial)
@@ -24,7 +23,6 @@ class MainTabBarController: UITabBarController {
     }
     
     private func setupViewControllers() {
-        // Tab 1: Tin Nhắn (Chats)
         let chatListVC = RoomListViewController()
         let chatNav = UINavigationController(rootViewController: chatListVC)
         chatNav.tabBarItem = UITabBarItem(
@@ -33,7 +31,6 @@ class MainTabBarController: UITabBarController {
             selectedImage: UIImage(systemName: "bubble.left.and.bubble.right.fill")
         )
         
-        // Tab 2: Bạn Bè (Friends / Contacts)
         let friendsVC = FriendsViewController()
         let friendsNav = UINavigationController(rootViewController: friendsVC)
         friendsNav.tabBarItem = UITabBarItem(
@@ -42,7 +39,6 @@ class MainTabBarController: UITabBarController {
             selectedImage: UIImage(systemName: "person.2.fill")
         )
         
-        // Tab 3: Cá Nhân (Profile)
         let profileVC = UserProfileViewController()
         let profileNav = UINavigationController(rootViewController: profileVC)
         profileNav.tabBarItem = UITabBarItem(

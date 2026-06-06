@@ -28,6 +28,19 @@ struct APIResponse<T: Codable>: Codable {
     let success: Bool
     let data: T?
     let error: APIErrorDetail?
+    let message: String? 
+
+    enum CodingKeys: String, CodingKey {
+        case success, data, error, message
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        success = try c.decodeIfPresent(Bool.self,             forKey: .success) ?? false
+        data    = try c.decodeIfPresent(T.self,                forKey: .data)
+        error   = try c.decodeIfPresent(APIErrorDetail.self,   forKey: .error)
+        message = try c.decodeIfPresent(String.self,           forKey: .message)
+    }
 }
 
 struct APIErrorDetail: Codable {
@@ -48,9 +61,7 @@ struct PaginatedResponse<T: Codable>: Codable {
         case totalPages = "total_pages"
     }
     
-    // Custom decoder thông minh để xử lý lỗi "Key not found" từ Server
     init(from decoder: Decoder) throws {
-        // 1. Nếu Server trả về dạng Object {} có chứa key "items"
         if let container = try? decoder.container(keyedBy: CodingKeys.self) {
             self.items = (try? container.decodeIfPresent([T].self, forKey: .items)) ?? []
             self.total = try container.decodeIfPresent(Int.self, forKey: .total)
@@ -58,7 +69,6 @@ struct PaginatedResponse<T: Codable>: Codable {
             self.perPage = try container.decodeIfPresent(Int.self, forKey: .perPage)
             self.totalPages = try container.decodeIfPresent(Int.self, forKey: .totalPages)
         }
-        // 2. Nếu Server trả thẳng về một mảng thuần [...] không có vỏ bọc phân trang
         else if let singleContainer = try? decoder.singleValueContainer(),
                   let rawArray = try? singleContainer.decode([T].self) {
             self.items = rawArray
@@ -67,7 +77,6 @@ struct PaginatedResponse<T: Codable>: Codable {
             self.perPage = rawArray.count
             self.totalPages = 1
         }
-        // 3. Trường hợp xấu nhất (Server trả sai cấu trúc hoàn toàn), trả về mảng rỗng để không bị sập App
         else {
             self.items = []
             self.total = 0
@@ -78,7 +87,6 @@ struct PaginatedResponse<T: Codable>: Codable {
     }
 }
 
-// TokenManager quản lý lưu giữ trạng thái đăng nhập
 class TokenManager {
     static let shared = TokenManager()
     private let accessKey = "com.boxchat.access_token"

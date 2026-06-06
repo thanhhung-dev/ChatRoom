@@ -10,6 +10,8 @@ struct Room: Codable {
     var lastMessage: Message?
     var unreadCount: Int
     let createdAt: String
+    var avatarUrl: String?
+    var memberCount: Int
     
     enum CodingKeys: String, CodingKey {
         case id, name, description
@@ -19,6 +21,8 @@ struct Room: Codable {
         case lastMessage = "last_message"
         case unreadCount = "unread_count"
         case createdAt = "created_at"
+        case avatarUrl = "avatar_url"
+        case memberCount = "member_count"
     }
     
     init(from decoder: Decoder) throws {
@@ -27,11 +31,28 @@ struct Room: Codable {
         name        = try c.decode(String.self, forKey: .name)
         description = try c.decodeIfPresent(String.self, forKey: .description)
         inviteCode  = try c.decodeIfPresent(String.self, forKey: .inviteCode) ?? ""
-        createdBy = try c.decodeIfPresent(Int.self, forKey: .createdBy)
+        createdBy   = try c.decodeIfPresent(Int.self, forKey: .createdBy)
         members     = try c.decodeIfPresent([RoomMember].self, forKey: .members)
         lastMessage = try c.decodeIfPresent(Message.self, forKey: .lastMessage)
         unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
         createdAt   = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
+        avatarUrl   = try c.decodeIfPresent(String.self, forKey: .avatarUrl)
+        memberCount = try c.decodeIfPresent(Int.self, forKey: .memberCount) ?? 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(description, forKey: .description)
+        try c.encode(inviteCode, forKey: .inviteCode)
+        try c.encode(createdBy, forKey: .createdBy)
+        try c.encode(members, forKey: .members)
+        try c.encode(lastMessage, forKey: .lastMessage)
+        try c.encode(unreadCount, forKey: .unreadCount)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(avatarUrl, forKey: .avatarUrl)
+        try c.encode(memberCount, forKey: .memberCount)
     }
 }
 
@@ -60,5 +81,15 @@ struct RoomMember: Codable {
         role        = try c.decodeIfPresent(String.self, forKey: .role) ?? "member"
         isOnline    = try c.decodeIfPresent(Bool.self, forKey: .isOnline) ?? false
         joinedAt    = try c.decodeIfPresent(String.self, forKey: .joinedAt) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(userId, forKey: .userId)
+        try c.encode(username, forKey: .username)
+        try c.encode(displayName, forKey: .displayName)
+        try c.encode(role, forKey: .role)
+        try c.encode(isOnline, forKey: .isOnline)
+        try c.encode(joinedAt, forKey: .joinedAt)
     }
 }

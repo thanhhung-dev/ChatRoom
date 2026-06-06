@@ -208,6 +208,14 @@ extension NetworkManager {
         request(path: "/rooms?page=1&per_page=50", completion: completion)
     }
 
+    func fetchRoom(roomId: Int, completion: @escaping (Result<Room, Error>) -> Void) {
+        request(path: "/rooms/\(roomId)", completion: completion)
+    }
+
+    func leaveRoom(roomId: Int, completion: @escaping (Result<[String: String], Error>) -> Void) {
+        request(path: "/rooms/\(roomId)/leave", method: "POST", completion: completion)
+    }
+
     func createRoom(name: String, description: String?, completion: @escaping (Result<Room, Error>) -> Void) {
         var body: [String: Any] = ["name": name]
         if let desc = description, !desc.isEmpty { body["description"] = desc }
@@ -216,6 +224,65 @@ extension NetworkManager {
 
     func joinRoom(inviteCode: String, completion: @escaping (Result<Room, Error>) -> Void) {
         request(path: "/rooms/join", method: "POST", body: ["invite_code": inviteCode], completion: completion)
+    }
+
+    func updateRoom(roomId: Int, name: String?, description: String?, completion: @escaping (Result<Room, Error>) -> Void) {
+        var body: [String: Any] = [:]
+        if let name = name, !name.isEmpty { body["name"] = name }
+        if let desc = description { body["description"] = desc }
+        request(path: "/rooms/\(roomId)", method: "PUT", body: body, completion: completion)
+    }
+
+    func uploadRoomAvatar(
+        roomId: Int,
+        imageData: Data,
+        completion: @escaping (Result<Room, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(Constants.apiBaseURL)/rooms/\(roomId)/avatar") else {
+            completion(.failure(NetworkError.invalidURL))
+            return
+        }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token = TokenManager.shared.accessToken {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        urlRequest.httpBody = body
+
+        URLSession.shared.dataTask(with: urlRequest) { [weak self] data, response, error in
+            guard let self = self else { return }
+            if error != nil { completion(.failure(NetworkError.noConnection)); return }
+            guard let data = data else { completion(.failure(NetworkError.noData)); return }
+
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+
+            if statusCode == 401 {
+                self.refreshAccessToken { success in
+                    if success {
+                        self.uploadRoomAvatar(roomId: roomId, imageData: imageData, completion: completion)
+                    } else {
+                        TokenManager.shared.clear()
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+                        }
+                        completion(.failure(NetworkError.sessionExpired))
+                    }
+                }
+                return
+            }
+
+            completion(self.decode(Room.self, from: data, statusCode: statusCode))
+        }.resume()
     }
 }
 
