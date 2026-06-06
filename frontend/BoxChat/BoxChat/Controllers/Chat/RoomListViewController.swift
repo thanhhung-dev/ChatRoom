@@ -10,14 +10,11 @@ final class RoomListViewController: UIViewController {
     
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
     private let tableView = UITableView()
     private var rooms: [Room] = []
     
     // Thêm một UIRefreshControl để người dùng có thể vuốt màn hình từ trên xuống để làm mới danh sách
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     private let titleLabel = UILabel()
@@ -28,9 +25,6 @@ final class RoomListViewController: UIViewController {
     private let filterStackView = UIStackView()
     private let tableView = UITableView(frame: .zero, style: .plain)
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -44,14 +38,11 @@ final class RoomListViewController: UIViewController {
         super.viewDidLoad()
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
         title = "Tin Nhắn"
         navigationController?.navigationBar.prefersLargeTitles = true
         view.backgroundColor = .systemGroupedBackground
         
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
         view.backgroundColor = .systemBackground
@@ -70,10 +61,7 @@ final class RoomListViewController: UIViewController {
     
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     override func viewWillAppear(_ animated: Bool) {
@@ -184,12 +172,8 @@ final class RoomListViewController: UIViewController {
         NSLayoutConstraint.activate([
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-=======
-            tableView.topAnchor.constraint(equalTo: filterStackView.bottomAnchor, constant: 8),
->>>>>>> Stashed changes
 =======
             tableView.topAnchor.constraint(equalTo: filterStackView.bottomAnchor, constant: 8),
 >>>>>>> Stashed changes
@@ -204,14 +188,11 @@ final class RoomListViewController: UIViewController {
     
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
     private func setupNavBar() {
         
         let addImg = UIImage(systemName: "plus.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: addImg, style: .plain, target: self, action: #selector(didTapAddRoom))
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     private func brandTitle() -> NSAttributedString {
@@ -253,9 +234,6 @@ final class RoomListViewController: UIViewController {
         button.layer.borderWidth = selected ? 0 : 1
         button.layer.borderColor = UIColor.separator.withAlphaComponent(0.28).cgColor
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -267,7 +245,6 @@ final class RoomListViewController: UIViewController {
                 guard let self else { return }
                 self.refreshControl.endRefreshing()
                 if case .success(let response) = result {
-<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
                     print("📊 [Debug] Đã lấy thành công \(response.items.count) phòng từ Server Database.")
@@ -301,15 +278,6 @@ final class RoomListViewController: UIViewController {
                 } else if case .failure(let error) = result {
                     self.showAlert(title: "Không tải được phòng", message: error.localizedDescription)
 >>>>>>> Stashed changes
-=======
-                    self.allRooms = response.items
-                    response.items.compactMap { $0.lastMessage }.forEach {
-                        WebSocketService.shared.localLastMessageIds[$0.roomId] = $0.id
-                    }
-                    self.applyFilters(animated: true)
-                } else if case .failure(let error) = result {
-                    self.showAlert(title: "Không tải được phòng", message: error.localizedDescription)
->>>>>>> Stashed changes
                 }
             }
         }
@@ -321,11 +289,8 @@ final class RoomListViewController: UIViewController {
     
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
     // Gọi Custom Sheet Kính mờ đồng bộ giao diện Đăng Nhập
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     @objc private func searchDidChange() {
@@ -385,9 +350,6 @@ final class RoomListViewController: UIViewController {
     }
     
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -405,12 +367,9 @@ final class RoomListViewController: UIViewController {
         
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
         // Lắng nghe sự kiện lưu dữ liệu thành công để reload lại danh sách phòng
         actionSheetVC.onDataChanged = { [weak self] in
 =======
-=======
->>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
         if let popover = sheet.popoverPresentationController {
@@ -424,9 +383,6 @@ final class RoomListViewController: UIViewController {
         let createVC = CreateGroupViewController()
         createVC.onDataChanged = { [weak self] in
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -434,7 +390,6 @@ final class RoomListViewController: UIViewController {
                 self?.fetchRooms()
             }
         }
-<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
         
@@ -451,64 +406,6 @@ final class RoomListViewController: UIViewController {
         let nav = UINavigationController(rootViewController: createVC)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
-=======
-        let nav = UINavigationController(rootViewController: createVC)
-        nav.modalPresentationStyle = .fullScreen
-        present(nav, animated: true)
-    }
-    
-    private func showJoinRoomPrompt() {
-        let alert = UIAlertController(
-            title: "Nhập mã mời",
-            message: "Dán mã mời của nhóm chat để tham gia.",
-            preferredStyle: .alert
-        )
-        alert.addTextField { textField in
-            textField.placeholder = "Ví dụ: ABC123"
-            textField.autocapitalizationType = .allCharacters
-            textField.autocorrectionType = .no
-            textField.clearButtonMode = .whileEditing
-        }
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        alert.addAction(
-            UIAlertAction(title: "Tham gia", style: .default) { [weak self, weak alert] _ in
-                guard let self else { return }
-                let code =
-                alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                self.joinRoom(inviteCode: code)
-            })
-        present(alert, animated: true)
-    }
-    
-    private func joinRoom(inviteCode: String) {
-        guard !inviteCode.isEmpty else {
-            showAlert(title: "Thiếu mã mời", message: "Bạn cần nhập mã mời để tham gia nhóm.")
-            return
-        }
-        
-        addButton.isEnabled = false
-        NetworkManager.shared.joinRoom(inviteCode: inviteCode) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.addButton.isEnabled = true
-                switch result {
-                case .success(let room):
-                    self.fetchRooms()
-                    let chatVC = ChatRoomViewController(room: room)
-                    chatVC.hidesBottomBarWhenPushed = true
-                    self.navigationController?.pushViewController(chatVC, animated: true)
-                case .failure(let error):
-                    self.showAlert(title: "Không thể tham gia", message: error.localizedDescription)
-                }
-            }
-        }
-    }
-    
-    private func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
->>>>>>> Stashed changes
     }
     
     private func showJoinRoomPrompt() {

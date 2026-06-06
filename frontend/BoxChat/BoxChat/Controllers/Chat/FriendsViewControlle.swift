@@ -3,7 +3,6 @@ import UIKit
 class FriendsViewController: UIViewController {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
     
     private let tableView = UITableView()
     private var friends: [RoomMember] = [] // Danh bạ bạn bè mẫu tải từ database
@@ -55,8 +54,6 @@ class FriendsViewController: UIViewController {
 =======
 =======
 >>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
   private let tableView = UITableView()
   private var friends: [RoomMember] = []
@@ -104,9 +101,6 @@ class FriendsViewController: UIViewController {
       self.friends = decoded
       self.tableView.reloadData()
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

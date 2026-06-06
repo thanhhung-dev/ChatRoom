@@ -3,7 +3,6 @@ import UIKit
 class UserProfileViewController: UIViewController {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
     
     private let cardView: UIView = {
         let view = UIView()
@@ -149,8 +148,6 @@ class UserProfileViewController: UIViewController {
 =======
 =======
 >>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
   private let cardView: UIView = {
     let view = UIView()
@@ -287,9 +284,6 @@ class UserProfileViewController: UIViewController {
         }.resume()
       }
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
