@@ -16,6 +16,7 @@ from app.services.presence_services import PresenceService
 from app.ws.manager import manager
 from app.ws.protocol import (
     ClientEvent,
+    ConnectedPayload,
     JoinRoomPayload,
     LeaveRoomPayload,
     MarkReadPayload,
@@ -88,13 +89,15 @@ async def handle_join_room(
         )
         return
 
+    already_joined = manager.is_user_in_room(user.id, payload.room_id)
     manager.connect(user.id, payload.room_id, websocket)
-    await presence.user_connected(
-        user_id=user.id,
-        room_id=payload.room_id,
-        username=user.username,
-        unread_count=member.unread_count,
-    )
+    if not already_joined:
+        await presence.user_connected(
+            user_id=user.id,
+            room_id=payload.room_id,
+            username=user.username,
+            unread_count=member.unread_count,
+        )
     await presence.send_online_members(payload.room_id, user.id)
 
 
@@ -296,6 +299,12 @@ async def websocket_endpoint(
         return
 
     await websocket.accept()
+    await websocket.send_text(
+        build_server_message(
+            ServerEvent.CONNECTED,
+            ConnectedPayload(user_id=user.id, username=user.username),
+        )
+    )
     presence = PresenceService(db)
 
     try:

@@ -10,6 +10,7 @@ final class WebSocketService: NSObject {
     static let shared = WebSocketService()
     
     weak var delegate: WebSocketServiceDelegate?
+    private let delegates = NSHashTable<AnyObject>.weakObjects()
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     
@@ -23,6 +24,52 @@ final class WebSocketService: NSObject {
     var localLastMessageIds: [Int: Int] = [:]
     
     private override init() { super.init() }
+
+    func addDelegate(_ delegate: WebSocketServiceDelegate) {
+        let add: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.delegates.add(delegate)
+        }
+        if Thread.isMainThread {
+            add()
+        } else {
+            DispatchQueue.main.async { add() }
+        }
+    }
+
+    func removeDelegate(_ delegate: WebSocketServiceDelegate) {
+        let remove: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.delegates.remove(delegate)
+            if self.delegate === delegate {
+                self.delegate = nil
+            }
+        }
+        if Thread.isMainThread {
+            remove()
+        } else {
+            DispatchQueue.main.async { remove() }
+        }
+    }
+
+    private func notifyDelegates(_ block: @escaping (WebSocketServiceDelegate) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            var notified = Set<ObjectIdentifier>()
+            if let delegate = self.delegate {
+                notified.insert(ObjectIdentifier(delegate as AnyObject))
+                block(delegate)
+            }
+            self.delegates.allObjects
+                .compactMap { $0 as? WebSocketServiceDelegate }
+                .forEach { delegate in
+                    let id = ObjectIdentifier(delegate as AnyObject)
+                    guard !notified.contains(id) else { return }
+                    notified.insert(id)
+                    block(delegate)
+                }
+        }
+    }
     
     // MARK: - Connect / Disconnect
     
@@ -139,14 +186,10 @@ final class WebSocketService: NSObject {
             reconnectAttempt = 0
             startHeartbeat()
             syncMessagesAfterReconnect()
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.webSocketDidConnect()
-            }
+            notifyDelegates { $0.webSocketDidConnect() }
             
         default:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.webSocketDidReceiveEvent(type: type, payload: payload)
-            }
+            notifyDelegates { $0.webSocketDidReceiveEvent(type: type, payload: payload) }
         }
     }
     
@@ -218,9 +261,7 @@ final class WebSocketService: NSObject {
     private func handleDisconnection(error: Error?) {
         guard isConnected || isConnecting else { return }
         print("⚡ WS disconnected: \(error?.localizedDescription ?? "unknown")")
-        DispatchQueue.main.async { [weak self] in
-            self?.delegate?.webSocketDidDisconnect(error: error)
-        }
+        notifyDelegates { $0.webSocketDidDisconnect(error: error) }
         cleanUp(reconnect: true)
     }
     

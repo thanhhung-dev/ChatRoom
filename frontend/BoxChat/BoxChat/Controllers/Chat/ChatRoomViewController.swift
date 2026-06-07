@@ -58,6 +58,7 @@ final class ChatRoomViewController: UIViewController {
     setupEmptyState()
     setupKeyboardObservers()
     setupGestures()
+    ensureCurrentUserLoaded()
 
     loadLocalMessages()
     loadMessageHistory()
@@ -74,6 +75,7 @@ final class ChatRoomViewController: UIViewController {
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
     navigationController?.setNavigationBarHidden(true, animated: animated)
+    joinWebSocketRoom()
   }
 
   override func viewWillDisappear(_ animated: Bool) {
@@ -364,13 +366,27 @@ final class ChatRoomViewController: UIViewController {
     scrollToBottom(animated: false)
   }
 
+  private func ensureCurrentUserLoaded() {
+    guard TokenManager.shared.currentUser == nil else { return }
+    NetworkManager.shared.fetchMe { [weak self] result in
+      if case .success(let user) = result {
+        TokenManager.shared.currentUser = user
+        DispatchQueue.main.async {
+          self?.tableView.reloadData()
+        }
+      }
+    }
+  }
+
   private func joinWebSocketRoom() {
-    WebSocketService.shared.delegate = self
+    WebSocketService.shared.addDelegate(self)
+    WebSocketService.shared.connect()
     WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
   }
 
   private func leaveWebSocketRoom() {
     WebSocketService.shared.sendEvent(type: "leave_room", payload: ["room_id": room.id])
+    WebSocketService.shared.removeDelegate(self)
   }
 
   @objc private func didTapSend() {
@@ -502,7 +518,7 @@ final class ChatRoomViewController: UIViewController {
       return
     }
 
-    if incoming.userId == TokenManager.shared.currentUser?.id,
+    if isMessageFromCurrentUser(incoming),
       let pendingIndex = messages.firstIndex(where: {
         $0.id < 0 && $0.content == incoming.content && $0.messageType == incoming.messageType
       })
@@ -626,7 +642,7 @@ extension ChatRoomViewController: UITableViewDataSource, UITableViewDelegate {
     let message = messages[indexPath.row]
     cell.configure(
       with: message,
-      isMe: message.userId == TokenManager.shared.currentUser?.id,
+      isMe: isMessageFromCurrentUser(message),
       reaction: reactionsByMessageId[message.id],
       localImage: localImagesByMessageId[message.id]
     )
@@ -746,10 +762,11 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
     switch type {
     case "new_message", "message_sent":
       guard let message = decodeMessage(from: payload) else { return }
+      guard message.roomId == room.id else { return }
       upsertIncomingMessage(message)
       WebSocketService.shared.localLastMessageIds[room.id] = message.id
       markMessagesAsRead()
-      if message.userId != TokenManager.shared.currentUser?.id {
+      if !isMessageFromCurrentUser(message) {
         updateSmartReplies(context: message.content)
       }
 
@@ -797,6 +814,20 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
     }
     guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
     return try? JSONDecoder().decode(Message.self, from: data)
+  }
+
+  private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+    if message.id < 0 { return true }
+    guard let currentUser = TokenManager.shared.currentUser else { return false }
+    if message.userId == currentUser.id { return true }
+    if message.username == currentUser.username { return true }
+    if let displayName = message.displayName,
+      let currentDisplayName = currentUser.displayName,
+      displayName == currentDisplayName
+    {
+      return true
+    }
+    return false
   }
 }
 
