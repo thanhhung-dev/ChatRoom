@@ -4,17 +4,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    // MARK: - Scene Lifecycle
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        // Khởi tạo window và thiết lập Root View Controller bằng code
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
         let window = UIWindow(windowScene: windowScene)
         self.window = window
 
-        // Luôn bắt đầu từ Splash — Splash tự navigate sau khi xong
         window.rootViewController = SplashViewController()
         window.makeKeyAndVisible()
 
-        // Lắng nghe logout từ bất kỳ đâu trong app
+        // Lắng nghe sự kiện yêu cầu đăng xuất từ hệ thống
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleLogout),
@@ -23,7 +29,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
     }
 
-    // MARK: - Logout
+    func sceneDidDisconnect(_ scene: UIScene) {
+        // Hủy lắng nghe Notification khi scene bị hủy
+        NotificationCenter.default.removeObserver(self, name: .didLogoutRequired, object: nil)
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        // Called when the scene has moved from an inactive state to an active state.
+    }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+        // Called when the scene will move from an active state to an inactive state.
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        // Called as the scene transitions from the background to the foreground.
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // Called as the scene transitions from the foreground to the background.
+    }
+
+    // MARK: - Logout Logic
 
     @objc private func handleLogout() {
         TokenManager.shared.clear()
@@ -39,11 +66,5 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 animations: { window.rootViewController = splash }
             )
         }
-    }
-
-    // MARK: - Scene Lifecycle
-
-    func sceneDidDisconnect(_ scene: UIScene) {
-        NotificationCenter.default.removeObserver(self, name: .didLogoutRequired, object: nil)
     }
 }

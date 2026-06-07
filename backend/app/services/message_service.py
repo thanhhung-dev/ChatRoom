@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 from app.models.message import Message
 from app.models.room_member import RoomMember
 from app.schemas.message import MessageResponse
+from app.ws.manager import manager
+from app.ws.protocol import NewMessagePayload, ServerEvent, build_server_message
 
 
 async def create_message(
@@ -30,8 +32,36 @@ async def create_message(
     )
     db.add(message)
     await db.commit()
-    await db.refresh(message)
+    result = await db.execute(
+        select(Message)
+        .options(selectinload(Message.user))
+        .where(Message.id == message.id)
+    )
+    message = result.scalar_one()
+    await broadcast_message(message)
     return message
+
+
+async def broadcast_message(message: Message) -> None:
+    if message.user is None:
+        return
+    await manager.broadcast(
+        message.room_id,
+        build_server_message(
+            ServerEvent.NEW_MESSAGE,
+            NewMessagePayload(
+                room_id=message.room_id,
+                message_id=message.id,
+                sender_id=message.user_id,
+                sender_username=message.user.username,
+                content=message.content,
+                content_type=message.message_type,
+                created_at=message.created_at,
+                file_url=message.file_url,
+                file_name=message.file_name,
+            ),
+        ),
+    )
 
 
 async def get_messages(

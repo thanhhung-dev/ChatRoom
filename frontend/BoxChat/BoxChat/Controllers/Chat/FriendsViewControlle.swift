@@ -52,7 +52,9 @@ class FriendsViewController: UIViewController {
 }
 
 // MARK: - UITableView DataSource & Delegate
+
 extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return friends.count
     }
@@ -73,6 +75,7 @@ extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
 }
 
 // MARK: - Friend Cell View
+
 class FriendCell: UITableViewCell {
     static let identifier = "FriendCell"
     
@@ -145,7 +148,7 @@ class FriendCell: UITableViewCell {
             
             statusTextLabel.bottomAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: -2),
             statusTextLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            statusTextLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor)
+            statusTextLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
         ])
     }
     

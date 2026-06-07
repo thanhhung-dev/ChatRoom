@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, update
@@ -136,7 +136,7 @@ async def handle_send_message(
         user_id=user.id,
         content=payload.content,
         message_type=payload.content_type,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
     )
     db.add(message)
     await db.flush()   # get message.id before broadcast
@@ -149,6 +149,8 @@ async def handle_send_message(
         content=payload.content,
         content_type=payload.content_type,
         created_at=message.created_at,
+        file_url=message.file_url,
+        file_name=message.file_name,
     )
     broadcast_text = build_server_message(ServerEvent.NEW_MESSAGE, new_msg_payload)
 
@@ -232,6 +234,8 @@ async def handle_sync_messages(
             content=m.content,
             content_type=m.message_type,
             created_at=m.created_at,
+            file_url=m.file_url,
+            file_name=m.file_name,
         )
         for m in messages
     ]

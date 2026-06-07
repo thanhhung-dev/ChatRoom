@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.api.router import api_router
+from app.config import settings
 from app.ws.handle import router as ws_router
 
 description = """
@@ -35,6 +38,8 @@ app = FastAPI(
 )
 app.include_router(api_router)
 app.include_router(ws_router)
+Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 
 @app.get("/health", tags=["health"], summary="Health check")

@@ -6,58 +6,105 @@ protocol WebSocketServiceDelegate: AnyObject {
     func webSocketDidReceiveEvent(type: String, payload: [String: Any])
 }
 
-class WebSocketService: NSObject {
+final class WebSocketService: NSObject {
     static let shared = WebSocketService()
     
     weak var delegate: WebSocketServiceDelegate?
     private var webSocketTask: URLSessionWebSocketTask?
+    private var urlSession: URLSession?
     
     private var pingTimer: Timer?
     private var pongTimeoutTimer: Timer?
     private var reconnectAttempt = 0
     private var isConnected = false
     private var isConnecting = false
+    private var shouldReconnect = true
     
     var localLastMessageIds: [Int: Int] = [:]
     
     private override init() { super.init() }
     
+    // MARK: - Connect / Disconnect
+    
     func connect() {
-        guard !isConnected && !isConnecting, let token = TokenManager.shared.accessToken else { return }
-        isConnecting = true
+        guard !isConnected, !isConnecting else { return }
         
-        guard let url = URL(string: "\(Constants.webSocketURL)?token=\(token)") else { return }
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
-        webSocketTask = session.webSocketTask(with: url)
-        webSocketTask?.resume()
-        
-        listen()
-    }
-    
-    func disconnect() {
-        stopHeartbeat()
-        webSocketTask?.cancel(with: .normalClosure, reason: nil)
-        isConnected = false
-        isConnecting = false
-    }
-    
-    func sendEvent(type: String, payload: [String: Any]) {
-        let frame: [String: Any] = [
-            "type": type,
-            "payload": payload,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: frame),
-              let jsonString = String(data: data, encoding: .utf8) else { return }
-        
-        webSocketTask?.send(.string(jsonString)) { error in
-            if let error = error { print("WS Send Error: \(error)") }
+        shouldReconnect = true
+        if let token = TokenManager.shared.accessToken, isTokenExpired(token) {
+            print("🔑 WS: token expired, refreshing before connect...")
+            NetworkManager.shared.refreshAccessToken { [weak self] success in
+                if success {
+                    self?.connectWithCurrentToken()
+                } else {
+                    TokenManager.shared.clear()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+                    }
+                }
+            }
+        } else {
+            connectWithCurrentToken()
         }
     }
     
+    private func connectWithCurrentToken() {
+        guard !isConnected, !isConnecting,
+              let token = TokenManager.shared.accessToken,
+              let url = URL(string: "\(Constants.webSocketURL)?token=\(token)")
+        else { return }
+        
+        isConnecting = true
+        let config = URLSessionConfiguration.default
+        urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        webSocketTask = urlSession?.webSocketTask(with: url)
+        webSocketTask?.resume()
+        listen()
+    }
+    
+    private func isTokenExpired(_ token: String) -> Bool {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { return true }
+        
+        var base64 = String(parts[1])
+        let remainder = base64.count % 4
+        if remainder != 0 { base64 += String(repeating: "=", count: 4 - remainder) }
+        
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let exp = json["exp"] as? TimeInterval
+        else { return true }
+        
+        return Date().timeIntervalSince1970 >= exp - 30
+    }
+    
+    func disconnect() {
+        shouldReconnect = false
+        cleanUp(reconnect: false)
+    }
+    
+    // MARK: - Send
+    
+    func sendEvent(type: String, payload: [String: Any] = [:]) {
+        guard isConnected else { return }
+        var frame: [String: Any] = ["type": type]
+        if !payload.isEmpty { frame["payload"] = payload }
+        frame["timestamp"] = ISO8601DateFormatter().string(from: Date())
+        
+        guard let data = try? JSONSerialization.data(withJSONObject: frame),
+              let json = String(data: data, encoding: .utf8) else { return }
+        
+        webSocketTask?.send(.string(json)) { error in
+            if let error = error {
+                print("❌ WS send error [\(type)]: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Listen
+    
     private func listen() {
         webSocketTask?.receive { [weak self] result in
-            guard let self = self else { return }
+            guard let self else { return }
             switch result {
             case .success(let message):
                 if case .string(let text) = message {
@@ -70,80 +117,153 @@ class WebSocketService: NSObject {
         }
     }
     
+    // MARK: - Handle Messages
+    
     private func handleIncomingMessage(_ jsonString: String) {
         guard let data = jsonString.data(using: .utf8),
-              let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = jsonObject["type"] as? String else { return }
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String else { return }
         
-        let payload = jsonObject["payload"] as? [String: Any] ?? [:]
+        let payload = json["payload"] as? [String: Any] ?? [:]
         
-        if type == "pong" {
-            pongTimeoutTimer?.invalidate()
-            pongTimeoutTimer = nil
-            return
-        }
-        
-        if type == "connected" {
+        switch type {
+        case "pong":
+            DispatchQueue.main.async { [weak self] in
+                self?.pongTimeoutTimer?.invalidate()
+                self?.pongTimeoutTimer = nil
+            }
+            
+        case "connected":
             isConnected = true
             isConnecting = false
             reconnectAttempt = 0
             startHeartbeat()
-            delegate?.webSocketDidConnect()
             syncMessagesAfterReconnect()
-            return
-        }
-        
-        DispatchQueue.main.async {
-            self.delegate?.webSocketDidReceiveEvent(type: type, payload: payload)
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.webSocketDidConnect()
+            }
+            
+        default:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.webSocketDidReceiveEvent(type: type, payload: payload)
+            }
         }
     }
     
+    // MARK: - Heartbeat
+    
     private func startHeartbeat() {
         stopHeartbeat()
-        DispatchQueue.main.async {
-            self.pingTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        DispatchQueue.main.async { [weak self] in
+            self?.pingTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
                 self?.sendPing()
             }
         }
     }
     
     private func stopHeartbeat() {
-        pingTimer?.invalidate()
-        pingTimer = nil
-        pongTimeoutTimer?.invalidate()
-        pongTimeoutTimer = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.pingTimer?.invalidate()
+            self?.pingTimer = nil
+            self?.pongTimeoutTimer?.invalidate()
+            self?.pongTimeoutTimer = nil
+        }
     }
     
-    private func sendPing() {
-        sendEvent(type: "ping", payload: [:])
-        DispatchQueue.main.async {
-            self.pongTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
-                self?.handleDisconnection(error: NSError(domain: "WS", code: -1, userInfo: [NSLocalizedDescriptionKey: "Ping Timeout"]))
+    func sendPing() {
+        // 1. Gửi Native WebSocket Ping (Đây là cái Backend đang mong chờ nhất)
+        webSocketTask?.sendPing { error in
+            if let error = error {
+                print("❌ Lỗi gửi native ping: \(error.localizedDescription)")
+            } else {
+                print("✅ Đã gửi Native Ping thành công")
             }
+        }
+        
+        // 2. Gửi JSON Ping (Dành cho logic app của bạn nếu có)
+        let pingMessage = ["type": "ping"]
+        if let data = try? JSONSerialization.data(withJSONObject: pingMessage),
+           let jsonString = String(data: data, encoding: .utf8) {
+            let message = URLSessionWebSocketTask.Message.string(jsonString)
+            webSocketTask?.send(message) { error in
+                if let error = error {
+                    print("❌ Lỗi gửi JSON ping: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    // MARK: - Disconnection & Reconnect
+    
+    private func cleanUp(reconnect: Bool) {
+        stopHeartbeat()
+        webSocketTask?.cancel(with: .normalClosure, reason: nil)
+        webSocketTask = nil
+        urlSession?.invalidateAndCancel()
+        urlSession = nil
+        isConnected = false
+        isConnecting = false
+        
+        if reconnect && shouldReconnect {
+            let delay = min(pow(2.0, Double(reconnectAttempt)), 30.0)
+            reconnectAttempt += 1
+            print("🔄 WS reconnect in \(Int(delay))s (attempt \(reconnectAttempt))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.connect()
+            }
+        } else {
+            reconnectAttempt = 0
         }
     }
     
     private func handleDisconnection(error: Error?) {
-        disconnect()
-        let delay = min(pow(2.0, Double(reconnectAttempt)), 30.0)
-        reconnectAttempt += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.connect()
+        guard isConnected || isConnecting else { return }
+        print("⚡ WS disconnected: \(error?.localizedDescription ?? "unknown")")
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.webSocketDidDisconnect(error: error)
         }
+        cleanUp(reconnect: true)
     }
+    
+    // MARK: - Sync
     
     private func syncMessagesAfterReconnect() {
         for (roomId, lastId) in localLastMessageIds {
-            sendEvent(type: "sync_messages", payload: ["room_id": roomId, "last_message_id": lastId])
+            sendEvent(type: "sync_messages", payload: [
+                "room_id": roomId,
+                "last_message_id": lastId
+            ])
         }
     }
 }
 
+// MARK: - URLSessionWebSocketDelegate
+
 extension WebSocketService: URLSessionWebSocketDelegate {
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        isConnecting = false
+    }
+    
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
         if closeCode.rawValue == 4001 {
-            NetworkManager.shared.refreshAccessToken { success in
-                if success { self.connect() }
+            NetworkManager.shared.refreshAccessToken { [weak self] success in
+                if success {
+                    self?.cleanUp(reconnect: false)
+                    self?.connect()
+                } else {
+                    TokenManager.shared.clear()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+                    }
+                }
             }
         } else {
             handleDisconnection(error: nil)

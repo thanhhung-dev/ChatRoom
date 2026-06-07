@@ -100,9 +100,11 @@ class NewMessagePayload(BaseModel):
     message_id: int
     sender_id: int
     sender_username: str
-    content: str
+    content: str | None = None
     content_type: str
     created_at: datetime
+    file_url: str | None = None
+    file_name: str | None = None
 
 
 class TypingIndicatorPayload(BaseModel):

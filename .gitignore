@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 *.xcuserstate
 xcuserdata/
+**/*.xcuserstate
+**/__pycache__/
+backend/.env

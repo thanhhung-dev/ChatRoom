@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, status
+from fastapi import APIRouter, Depends, Form, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
@@ -42,6 +42,7 @@ async def get_messages(
 async def upload_file(
     room_id: int,
     file: UploadFile,
+    content: str | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
@@ -50,6 +51,7 @@ async def upload_file(
         db,
         room_id=room_id,
         user_id=current_user.id,
+        content=content,
         message_type="file",
         file_url=file_url,
         file_name=file_name,
