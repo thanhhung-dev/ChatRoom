@@ -81,6 +81,7 @@ final class ChatRoomViewController: UIViewController {
   override func viewWillDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
     sendStopTyping()
+    guard isMovingFromParent || isBeingDismissed else { return }
     leaveWebSocketRoom()
   }
 
@@ -381,11 +382,11 @@ final class ChatRoomViewController: UIViewController {
   private func joinWebSocketRoom() {
     WebSocketService.shared.addDelegate(self)
     WebSocketService.shared.connect()
-    WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
+    WebSocketService.shared.joinRoom(room.id)
   }
 
   private func leaveWebSocketRoom() {
-    WebSocketService.shared.sendEvent(type: "leave_room", payload: ["room_id": room.id])
+    WebSocketService.shared.leaveRoom(room.id)
     WebSocketService.shared.removeDelegate(self)
   }
 
@@ -583,7 +584,7 @@ final class ChatRoomViewController: UIViewController {
   private func markMessagesAsRead() {
     guard let last = messages.last else { return }
     WebSocketService.shared.sendEvent(
-      type: "mark_read", payload: ["room_id": room.id, "last_message_id": last.id])
+      type: "mark_read", payload: ["room_id": room.id, "message_id": last.id])
   }
 
   private func sendStopTyping() {
@@ -777,11 +778,12 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
       typingIndicatorLabel.text = active ? "\(username) đang soạn tin nhắn..." : nil
       typingIndicatorLabel.isHidden = !active
 
-    case "sync_messages":
+    case "sync_response":
       guard let roomId = payload["room_id"] as? Int, roomId == room.id,
         let list = payload["messages"] as? [[String: Any]]
       else { return }
-      list.compactMap(decodeMessageObject).forEach(upsertIncomingMessage)
+      list.compactMap { Message.fromWebSocketPayload($0, defaultRoomId: room.id) }
+        .forEach(upsertIncomingMessage)
 
     default:
       break
@@ -790,30 +792,9 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
 
   private func decodeMessage(from payload: [String: Any]) -> Message? {
     if let dictionary = payload["message"] as? [String: Any] {
-      return decodeMessageObject(dictionary)
+      return Message.fromWebSocketPayload(dictionary, defaultRoomId: room.id)
     }
-    return decodeMessageObject(payload)
-  }
-
-  private func decodeMessageObject(_ object: [String: Any]) -> Message? {
-    if let messageId = object["message_id"] as? Int {
-      let createdAt = object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
-      return Message(
-        id: messageId,
-        roomId: object["room_id"] as? Int ?? room.id,
-        userId: object["sender_id"] as? Int,
-        username: object["sender_username"] as? String,
-        displayName: object["sender_username"] as? String,
-        content: object["content"] as? String ?? "",
-        messageType: object["content_type"] as? String ?? "text",
-        fileUrl: object["file_url"] as? String,
-        fileName: object["file_name"] as? String,
-        status: "sent",
-        createdAt: createdAt
-      )
-    }
-    guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
-    return try? JSONDecoder().decode(Message.self, from: data)
+    return Message.fromWebSocketPayload(payload, defaultRoomId: room.id)
   }
 
   private func isMessageFromCurrentUser(_ message: Message) -> Bool {

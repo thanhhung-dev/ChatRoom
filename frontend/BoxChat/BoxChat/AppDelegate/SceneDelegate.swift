@@ -43,7 +43,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
-        // Called as the scene transitions from the background to the foreground.
+        guard TokenManager.shared.accessToken != nil else { return }
+        WebSocketService.shared.connect()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {

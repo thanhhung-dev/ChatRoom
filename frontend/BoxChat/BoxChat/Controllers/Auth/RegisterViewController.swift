@@ -35,7 +35,7 @@ class RegisterViewController: UIViewController {
   }()
 
   private lazy var nameField: UITextField = createTextField(
-    placeholder: "Nguyễn Văn A", title: "Họ và tên", isSecure: false)
+    placeholder: "nguyenvana", title: "Tên đăng nhập", isSecure: false)
   private lazy var emailField: UITextField = createTextField(
     placeholder: "nguyenvana@gmail.com", title: "Email", isSecure: false)
   private lazy var passwordField: UITextField = createTextField(
@@ -352,8 +352,17 @@ class RegisterViewController: UIViewController {
       return
     }
 
-    if password != confirmPassword {
+    if password.count < 8 {
+      showAlert(message: "Mật khẩu phải có ít nhất 8 ký tự")
+      return
+    }
 
+    if username.count < 3 {
+      showAlert(message: "Tên đăng nhập phải có ít nhất 3 ký tự")
+      return
+    }
+
+    if password != confirmPassword {
       showAlert(message: "Mật khẩu xác nhận không khớp")
       return
     }
@@ -367,29 +376,41 @@ class RegisterViewController: UIViewController {
         "password": password,
       ]
     ) { [weak self] result in
-
       DispatchQueue.main.async {
-
         self?.registerButton.isEnabled = true
 
         switch result {
-
         case .success:
-
-          WebSocketService.shared.connect()
-
-          let tabBar = MainTabBarController()
-
-          self?.navigationController?.setViewControllers(
-            [tabBar],
-            animated: true
-          )
+          NetworkManager.shared.fetchMe { meResult in
+            DispatchQueue.main.async {
+              if case .success(let user) = meResult {
+                TokenManager.shared.currentUser = user
+              }
+              WebSocketService.shared.connect()
+              self?.navigateToMainApp()
+            }
+          }
 
         case .failure(let error):
           self?.showAlert(message: error.localizedDescription)
         }
       }
     }
+  }
+
+  private func navigateToMainApp() {
+    guard
+      let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+      let sceneDelegate = windowScene.delegate as? SceneDelegate,
+      let window = sceneDelegate.window
+    else { return }
+
+    UIView.transition(
+      with: window,
+      duration: 0.35,
+      options: .transitionCrossDissolve,
+      animations: { window.rootViewController = MainTabBarController() }
+    )
   }
   private func showAlert(message: String) {
 

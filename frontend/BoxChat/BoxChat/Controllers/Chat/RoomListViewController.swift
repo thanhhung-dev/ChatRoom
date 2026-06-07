@@ -186,7 +186,7 @@ final class RoomListViewController: UIViewController {
 
     private func joinFetchedRooms() {
         allRooms.forEach { room in
-            WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
+            WebSocketService.shared.joinRoom(room.id)
         }
     }
 
@@ -366,23 +366,7 @@ extension RoomListViewController: WebSocketServiceDelegate {
 
     private func decodeMessage(from payload: [String: Any]) -> Message? {
         let object = payload["message"] as? [String: Any] ?? payload
-        if let messageId = object["message_id"] as? Int {
-            return Message(
-                id: messageId,
-                roomId: object["room_id"] as? Int ?? -1,
-                userId: object["sender_id"] as? Int,
-                username: object["sender_username"] as? String,
-                displayName: object["sender_username"] as? String,
-                content: object["content"] as? String ?? "",
-                messageType: object["content_type"] as? String ?? "text",
-                fileUrl: object["file_url"] as? String,
-                fileName: object["file_name"] as? String,
-                status: "sent",
-                createdAt: object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
-            )
-        }
-        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
-        return try? JSONDecoder().decode(Message.self, from: data)
+        return Message.fromWebSocketPayload(object)
     }
 
     private func isMessageFromCurrentUser(_ message: Message) -> Bool {
