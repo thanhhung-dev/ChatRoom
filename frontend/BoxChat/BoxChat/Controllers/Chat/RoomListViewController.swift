@@ -27,14 +27,19 @@ final class RoomListViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: false)
         setupHeader()
         setupTableView()
+        ensureCurrentUserLoaded()
         fetchRooms()
-        WebSocketService.shared.delegate = self
+        WebSocketService.shared.addDelegate(self)
+        WebSocketService.shared.connect()
         NotificationCenter.default.addObserver(self, selector: #selector(handleLogoutRequired), name: .didLogoutRequired, object: nil)
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        WebSocketService.shared.addDelegate(self)
+        WebSocketService.shared.connect()
+        joinFetchedRooms()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -42,7 +47,10 @@ final class RoomListViewController: UIViewController {
         applyFilters(animated: false)
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        WebSocketService.shared.removeDelegate(self)
+        NotificationCenter.default.removeObserver(self)
+    }
 
     private func setupHeader() {
         titleLabel.attributedText = brandTitle()
@@ -165,6 +173,7 @@ final class RoomListViewController: UIViewController {
                     response.items.compactMap { $0.lastMessage }.forEach {
                         WebSocketService.shared.localLastMessageIds[$0.roomId] = $0.id
                     }
+                    self.joinFetchedRooms()
                     self.applyFilters(animated: true)
                 } else if case .failure(let error) = result {
                     self.showAlert(title: "Không tải được phòng", message: error.localizedDescription)
@@ -174,6 +183,25 @@ final class RoomListViewController: UIViewController {
     }
 
     @objc private func handleRefresh() { fetchRooms() }
+
+    private func joinFetchedRooms() {
+        allRooms.forEach { room in
+            WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
+        }
+    }
+
+    private func ensureCurrentUserLoaded() {
+        guard TokenManager.shared.currentUser == nil else { return }
+        NetworkManager.shared.fetchMe { [weak self] result in
+            if case .success(let user) = result {
+                TokenManager.shared.currentUser = user
+                DispatchQueue.main.async {
+                    guard self?.allRooms.isEmpty == false else { return }
+                    self?.applyFilters(animated: false)
+                }
+            }
+        }
+    }
 
     @objc private func searchDidChange() { applyFilters(animated: true) }
 
@@ -189,21 +217,46 @@ final class RoomListViewController: UIViewController {
 
     private func applyFilters(animated: Bool) {
         let query = searchTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-        rooms = allRooms.filter { room in
-            let matchesSearch = query.isEmpty || room.name.lowercased().contains(query)
-            let matchesFilter: Bool
-            switch selectedFilter {
-            case .all: matchesFilter = true
-            case .unread: matchesFilter = room.unreadCount > 0
-            case .groups: matchesFilter = room.memberCount > 1
-            case .friends: matchesFilter = room.memberCount <= 1
+        rooms = allRooms
+            .filter { room in
+                let matchesSearch = query.isEmpty || room.name.lowercased().contains(query)
+                let matchesFilter: Bool
+                switch selectedFilter {
+                case .all: matchesFilter = true
+                case .unread: matchesFilter = room.unreadCount > 0
+                case .groups: matchesFilter = room.memberCount > 1
+                case .friends: matchesFilter = room.memberCount <= 1
+                }
+                return matchesSearch && matchesFilter
             }
-            return matchesSearch && matchesFilter
-        }
+            .sorted { a, b in
+                let dateA = latestDate(for: a)
+                let dateB = latestDate(for: b)
+                return dateA > dateB
+            }
         tableView.reloadData()
         if animated { animateVisibleCells() }
     }
+    
+    private func latestDate(for room: Room) -> Date {
+        let iso = ISO8601DateFormatter()
 
+        let localLatest = ChatLocalStore.shared
+            .loadMessages(roomId: room.id)
+            .compactMap { iso.date(from: $0.createdAt) }
+            .max()
+
+        let serverLatest = room.lastMessage.flatMap {
+            iso.date(from: $0.createdAt)
+        }
+
+        let roomCreated = iso.date(from: room.createdAt)
+
+        return [localLatest, serverLatest, roomCreated]
+            .compactMap { $0 }
+            .max() ?? .distantPast
+    }
+    
     private func animateVisibleCells() {
         tableView.visibleCells.enumerated().forEach { index, cell in
             cell.alpha = 0
@@ -309,14 +362,70 @@ extension RoomListViewController: UITableViewDataSource, UITableViewDelegate {
 }
 
 extension RoomListViewController: WebSocketServiceDelegate {
-    func webSocketDidConnect() {}
+    func webSocketDidConnect() {
+        joinFetchedRooms()
+    }
     func webSocketDidDisconnect(error: Error?) {}
     func webSocketDidReceiveEvent(type: String, payload: [String: Any]) {
-        guard type == "unread_update",
-              let roomId = payload["room_id"] as? Int,
-              let unread = payload["unread_count"] as? Int,
-              let index = allRooms.firstIndex(where: { $0.id == roomId }) else { return }
-        allRooms[index].unreadCount = unread
-        applyFilters(animated: false)
+        switch type {
+        case "new_message", "message_sent":
+            guard let message = decodeMessage(from: payload),
+                  let index = allRooms.firstIndex(where: { $0.id == message.roomId }) else { return }
+
+            allRooms[index].lastMessage = message
+
+            if !isMessageFromCurrentUser(message) {
+                allRooms[index].unreadCount += 1
+            }
+
+            let room = allRooms.remove(at: index)
+            allRooms.insert(room, at: 0)
+
+            applyFilters(animated: false)
+
+        case "unread_update":
+            guard let roomId = payload["room_id"] as? Int,
+                  let unread = payload["unread_count"] as? Int,
+                  let index = allRooms.firstIndex(where: { $0.id == roomId }) else { return }
+            allRooms[index].unreadCount = unread
+            applyFilters(animated: false)
+
+        default:
+            break
+        }
+    }
+
+    private func decodeMessage(from payload: [String: Any]) -> Message? {
+        let object = payload["message"] as? [String: Any] ?? payload
+        if let messageId = object["message_id"] as? Int {
+            return Message(
+                id: messageId,
+                roomId: object["room_id"] as? Int ?? -1,
+                userId: object["sender_id"] as? Int,
+                username: object["sender_username"] as? String,
+                displayName: object["sender_username"] as? String,
+                content: object["content"] as? String ?? "",
+                messageType: object["content_type"] as? String ?? "text",
+                fileUrl: object["file_url"] as? String,
+                fileName: object["file_name"] as? String,
+                status: "sent",
+                createdAt: object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
+            )
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
+        return try? JSONDecoder().decode(Message.self, from: data)
+    }
+
+    private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+        if message.id < 0 { return true }
+        guard let currentUser = TokenManager.shared.currentUser else { return false }
+        if message.userId == currentUser.id { return true }
+        if message.username == currentUser.username { return true }
+        if let displayName = message.displayName,
+           let currentDisplayName = currentUser.displayName,
+           displayName == currentDisplayName {
+            return true
+        }
+        return false
     }
 }

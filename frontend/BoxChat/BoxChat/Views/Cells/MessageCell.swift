@@ -69,6 +69,9 @@ final class MessageCell: UITableViewCell {
 
     messageLabel.font = .systemFont(ofSize: 15)
     messageLabel.numberOfLines = 0
+    // Cho phép label co lại theo nội dung
+    messageLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+    messageLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
     messageImageView.contentMode = .scaleAspectFill
     messageImageView.clipsToBounds = true
@@ -135,8 +138,11 @@ final class MessageCell: UITableViewCell {
 
       bubbleView.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 3),
       bubbleView.bottomAnchor.constraint(equalTo: metaLabel.topAnchor, constant: -3),
+      // Tối đa 74% chiều rộng màn hình
       bubbleView.widthAnchor.constraint(
         lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.74),
+      // Tối thiểu đủ chứa nội dung — bubble co sát theo text
+      bubbleView.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
 
       stackView.topAnchor.constraint(equalTo: bubbleView.topAnchor, constant: 10),
       stackView.leadingAnchor.constraint(equalTo: bubbleView.leadingAnchor, constant: 12),

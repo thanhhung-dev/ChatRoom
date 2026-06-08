@@ -14,6 +14,8 @@ final class RoomCell: UITableViewCell {
   private let onlineDot = UIView()
   private var avatarTask: URLSessionDataTask?
 
+  private var badgeWidthConstraint: NSLayoutConstraint!
+
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
     setupViews()
@@ -29,6 +31,7 @@ final class RoomCell: UITableViewCell {
     avatarTask = nil
     avatarImageView.image = nil
     avatarImageView.isHidden = true
+    unreadBadge.isHidden = true
   }
 
   private func setupViews() {
@@ -68,12 +71,13 @@ final class RoomCell: UITableViewCell {
     timeLabel.textColor = .secondaryLabel
     timeLabel.textAlignment = .right
 
+    // Badge: nhỏ gọn, tròn khi 1 chữ số, pill khi nhiều hơn
     unreadBadge.backgroundColor = .systemBlue
     unreadBadge.textColor = .white
     unreadBadge.font = .systemFont(ofSize: 11, weight: .bold)
     unreadBadge.textAlignment = .center
-    unreadBadge.layer.cornerRadius = 10
     unreadBadge.clipsToBounds = true
+    unreadBadge.isHidden = true
 
     onlineDot.backgroundColor = .systemGreen
     onlineDot.layer.cornerRadius = 5
@@ -89,6 +93,9 @@ final class RoomCell: UITableViewCell {
       $0.translatesAutoresizingMaskIntoConstraints = false
       avatarContainer.addSubview($0)
     }
+
+    // Badge width mặc định = 20 (hình tròn cho 1 chữ số)
+    badgeWidthConstraint = unreadBadge.widthAnchor.constraint(equalToConstant: 20)
 
     NSLayoutConstraint.activate([
       avatarContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
@@ -120,20 +127,20 @@ final class RoomCell: UITableViewCell {
       nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
       nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: timeLabel.leadingAnchor, constant: -8),
 
+      timeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+      timeLabel.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: 1),
+      timeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
+
+      // Badge góc phải, ngay dưới timeLabel, cố định height=20
+      unreadBadge.trailingAnchor.constraint(equalTo: timeLabel.trailingAnchor),
+      unreadBadge.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 6),
+      unreadBadge.heightAnchor.constraint(equalToConstant: 20),
+      badgeWidthConstraint,
+
       previewLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
       previewLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
       previewLabel.trailingAnchor.constraint(equalTo: unreadBadge.leadingAnchor, constant: -8),
-      previewLabel.bottomAnchor.constraint(
-        lessThanOrEqualTo: contentView.bottomAnchor, constant: -14),
-
-      timeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-      timeLabel.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: 1),
-      timeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 52),
-
-      unreadBadge.trailingAnchor.constraint(equalTo: timeLabel.trailingAnchor),
-      unreadBadge.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 8),
-      unreadBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 20),
-      unreadBadge.heightAnchor.constraint(equalToConstant: 20),
+      previewLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -14),
     ])
   }
 
@@ -156,12 +163,21 @@ final class RoomCell: UITableViewCell {
       avatarPrimary.backgroundColor = .systemBlue
       avatarPrimary.text = initials(room.name)
     }
+
     avatarSecondary.text = room.memberCount > 1 ? "\(min(room.memberCount, 9))" : ""
     avatarSecondary.isHidden = room.memberCount <= 1
     onlineDot.isHidden = room.memberCount != 1
 
     if room.unreadCount > 0 {
-      unreadBadge.text = "\(room.unreadCount)"
+      let count = room.unreadCount
+      // Tối đa hiển thị "9+", sau đó không tăng nữa
+      let text = count > 9 ? "9+" : "\(count)"
+      unreadBadge.text = text
+
+      // Width: 1 chữ số = 20 (tròn), "9+" = 28 (pill)
+      let badgeWidth: CGFloat = text.count == 1 ? 20 : 28
+      badgeWidthConstraint.constant = badgeWidth
+      unreadBadge.layer.cornerRadius = 10
       unreadBadge.isHidden = false
     } else {
       unreadBadge.isHidden = true
@@ -192,9 +208,7 @@ final class RoomCell: UITableViewCell {
       formatter.dateFormat = "HH:mm"
       return formatter.string(from: date)
     }
-    if calendar.isDateInYesterday(date) {
-      return "Hôm qua"
-    }
+    if calendar.isDateInYesterday(date) { return "Hôm qua" }
     let formatter = DateFormatter()
     formatter.dateFormat = "E"
     return formatter.string(from: date)
