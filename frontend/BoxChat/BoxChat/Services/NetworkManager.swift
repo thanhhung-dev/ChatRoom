@@ -142,9 +142,42 @@ final class NetworkManager {
     guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
       return nil
     }
-    return json["message"] as? String
-      ?? json["detail"] as? String
-      ?? json["error"] as? String
+
+    if let detail = json["detail"] as? String {
+      return localizedServerDetail(detail)
+    }
+
+    if let details = json["detail"] as? [[String: Any]] {
+      let messages = details.compactMap { item -> String? in
+        guard let message = item["msg"] as? String else { return nil }
+        if let loc = item["loc"] as? [Any], let field = loc.last as? String {
+          return "\(localizedFieldName(field)): \(message)"
+        }
+        return message
+      }
+      if !messages.isEmpty {
+        return messages.joined(separator: "\n")
+      }
+    }
+
+    return json["message"] as? String ?? json["error"] as? String
+  }
+
+  private func localizedFieldName(_ field: String) -> String {
+    switch field {
+    case "username": return "Tên đăng nhập"
+    case "email": return "Email"
+    case "password": return "Mật khẩu"
+    default: return field
+    }
+  }
+
+  private func localizedServerDetail(_ detail: String) -> String {
+    switch detail {
+    case "Username already registered": return "Tên đăng nhập đã được sử dụng."
+    case "Email already registered": return "Email đã được sử dụng."
+    default: return detail
+    }
   }
 
   private func httpErrorMessage(for statusCode: Int) -> String {

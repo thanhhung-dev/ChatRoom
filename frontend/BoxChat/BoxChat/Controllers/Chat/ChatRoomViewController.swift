@@ -75,12 +75,13 @@ final class ChatRoomViewController: UIViewController {
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
     navigationController?.setNavigationBarHidden(true, animated: animated)
-    // KHÔNG gọi joinWebSocketRoom() ở đây — đã gọi trong viewDidLoad
+    joinWebSocketRoom()
   }
 
   override func viewWillDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
     sendStopTyping()
+    guard isMovingFromParent || isBeingDismissed else { return }
     leaveWebSocketRoom()
   }
 
@@ -581,7 +582,7 @@ final class ChatRoomViewController: UIViewController {
   private func markMessagesAsRead() {
     guard let last = messages.last else { return }
     WebSocketService.shared.sendEvent(
-      type: "mark_read", payload: ["room_id": room.id, "last_message_id": last.id])
+      type: "mark_read", payload: ["room_id": room.id, "message_id": last.id])
   }
 
   private func sendStopTyping() {
@@ -794,30 +795,23 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
 
   private func decodeMessage(from payload: [String: Any]) -> Message? {
     if let dictionary = payload["message"] as? [String: Any] {
-      return decodeMessageObject(dictionary)
+      return Message.fromWebSocketPayload(dictionary, defaultRoomId: room.id)
     }
-    return decodeMessageObject(payload)
+    return Message.fromWebSocketPayload(payload, defaultRoomId: room.id)
   }
 
-  private func decodeMessageObject(_ object: [String: Any]) -> Message? {
-    if let messageId = object["message_id"] as? Int {
-      let createdAt = object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
-      return Message(
-        id: messageId,
-        roomId: object["room_id"] as? Int ?? room.id,
-        userId: object["sender_id"] as? Int,
-        username: object["sender_username"] as? String,
-        displayName: object["sender_username"] as? String,
-        content: object["content"] as? String ?? "",
-        messageType: object["content_type"] as? String ?? "text",
-        fileUrl: object["file_url"] as? String,
-        fileName: object["file_name"] as? String,
-        status: "sent",
-        createdAt: createdAt
-      )
+  private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+    if message.id < 0 { return true }
+    guard let currentUser = TokenManager.shared.currentUser else { return false }
+    if message.userId == currentUser.id { return true }
+    if message.username == currentUser.username { return true }
+    if let displayName = message.displayName,
+      let currentDisplayName = currentUser.displayName,
+      displayName == currentDisplayName
+    {
+      return true
     }
-    guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
-    return try? JSONDecoder().decode(Message.self, from: data)
+    return false
   }
 
   private func isMessageFromCurrentUser(_ message: Message) -> Bool {

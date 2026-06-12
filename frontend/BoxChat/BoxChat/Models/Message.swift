@@ -1,5 +1,18 @@
 import Foundation
 
+private func JSONInt(_ value: Any?) -> Int? {
+  switch value {
+  case let value as Int:
+    return value
+  case let value as Double:
+    return Int(value)
+  case let value as NSNumber:
+    return value.intValue
+  default:
+    return nil
+  }
+}
+
 struct Message: Codable, Equatable {
   let id: Int
   let roomId: Int
@@ -85,6 +98,30 @@ struct Message: Codable, Equatable {
     fileName = try c.decodeIfPresent(String.self, forKey: .fileName)
 
     createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
+  }
+
+  static func fromWebSocketPayload(
+    _ object: [String: Any],
+    defaultRoomId: Int? = nil
+  ) -> Message? {
+    if let messageId = JSONInt(object["message_id"]) {
+      let createdAt = object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
+      return Message(
+        id: messageId,
+        roomId: JSONInt(object["room_id"]) ?? defaultRoomId ?? -1,
+        userId: JSONInt(object["sender_id"]),
+        username: object["sender_username"] as? String,
+        displayName: object["sender_username"] as? String,
+        content: object["content"] as? String ?? "",
+        messageType: object["content_type"] as? String ?? "text",
+        fileUrl: object["file_url"] as? String,
+        fileName: object["file_name"] as? String,
+        status: "sent",
+        createdAt: createdAt
+      )
+    }
+    guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
+    return try? JSONDecoder().decode(Message.self, from: data)
   }
 
   func encode(to encoder: Encoder) throws {

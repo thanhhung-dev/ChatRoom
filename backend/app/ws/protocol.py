@@ -24,6 +24,7 @@ class ClientEvent(str, Enum):
 
 
 class ServerEvent(str, Enum):
+    CONNECTED         = "connected"
     USER_JOINED       = "user_joined"
     USER_LEFT         = "user_left"
     NEW_MESSAGE       = "new_message"
@@ -87,6 +88,11 @@ class UserJoinedPayload(BaseModel):
     user_id: int
     username: str
     unread_count: int = 0
+
+
+class ConnectedPayload(BaseModel):
+    user_id: int
+    username: str
 
 
 class UserLeftPayload(BaseModel):

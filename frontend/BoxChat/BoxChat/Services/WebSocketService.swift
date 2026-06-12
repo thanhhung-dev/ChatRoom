@@ -22,6 +22,7 @@ final class WebSocketService: NSObject {
     private var shouldReconnect = true
     
     var localLastMessageIds: [Int: Int] = [:]
+    private var joinedRoomIds = Set<Int>()
     
     private override init() { super.init() }
 
@@ -126,13 +127,28 @@ final class WebSocketService: NSObject {
     
     func disconnect() {
         shouldReconnect = false
+        joinedRoomIds.removeAll()
         cleanUp(reconnect: false)
     }
     
     // MARK: - Send
     
+    func joinRoom(_ roomId: Int) {
+        joinedRoomIds.insert(roomId)
+        sendEvent(type: "join_room", payload: ["room_id": roomId])
+    }
+
+    func leaveRoom(_ roomId: Int) {
+        joinedRoomIds.remove(roomId)
+        sendEvent(type: "leave_room", payload: ["room_id": roomId])
+    }
+
     func sendEvent(type: String, payload: [String: Any] = [:]) {
         guard isConnected else { return }
+        sendEventNow(type: type, payload: payload)
+    }
+
+    private func sendEventNow(type: String, payload: [String: Any]) {
         var frame: [String: Any] = ["type": type]
         if !payload.isEmpty { frame["payload"] = payload }
         frame["timestamp"] = ISO8601DateFormatter().string(from: Date())
@@ -144,6 +160,12 @@ final class WebSocketService: NSObject {
             if let error = error {
                 print("❌ WS send error [\(type)]: \(error.localizedDescription)")
             }
+        }
+    }
+
+    private func rejoinAllRooms() {
+        for roomId in joinedRoomIds {
+            sendEventNow(type: "join_room", payload: ["room_id": roomId])
         }
     }
     
@@ -185,6 +207,7 @@ final class WebSocketService: NSObject {
             isConnecting = false
             reconnectAttempt = 0
             startHeartbeat()
+            rejoinAllRooms()
             syncMessagesAfterReconnect()
             notifyDelegates { $0.webSocketDidConnect() }
             
