@@ -126,9 +126,7 @@ final class ChatRoomViewController: UIViewController {
     topBarView.addSubview(callButton)
 
     optionsButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
-
     optionsButton.transform = CGAffineTransform(rotationAngle: .pi / 2)
-
     optionsButton.tintColor = .systemBlue
     optionsButton.addTarget(self, action: #selector(didTapInfo), for: .touchUpInside)
     optionsButton.translatesAutoresizingMaskIntoConstraints = false
@@ -382,11 +380,11 @@ final class ChatRoomViewController: UIViewController {
   private func joinWebSocketRoom() {
     WebSocketService.shared.addDelegate(self)
     WebSocketService.shared.connect()
-    WebSocketService.shared.joinRoom(room.id)
+    WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
   }
 
   private func leaveWebSocketRoom() {
-    WebSocketService.shared.leaveRoom(room.id)
+    WebSocketService.shared.sendEvent(type: "leave_room", payload: ["room_id": room.id])
     WebSocketService.shared.removeDelegate(self)
   }
 
@@ -754,7 +752,9 @@ extension ChatRoomViewController: UIDocumentPickerDelegate {
 
 extension ChatRoomViewController: WebSocketServiceDelegate {
   func webSocketDidConnect() {
-    joinWebSocketRoom()
+    // Chỉ gửi join_room khi reconnect — KHÔNG gọi joinWebSocketRoom()
+    // vì addDelegate đã được gọi từ trước, gọi lại sẽ gây nhận event trùng lặp
+    WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
   }
 
   func webSocketDidDisconnect(error: Error?) {}
@@ -778,12 +778,15 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
       typingIndicatorLabel.text = active ? "\(username) đang soạn tin nhắn..." : nil
       typingIndicatorLabel.isHidden = !active
 
+    // FIX: server gửi "sync_response", không phải "sync_messages"
     case "sync_response":
       guard let roomId = payload["room_id"] as? Int, roomId == room.id,
         let list = payload["messages"] as? [[String: Any]]
       else { return }
-      list.compactMap { Message.fromWebSocketPayload($0, defaultRoomId: room.id) }
-        .forEach(upsertIncomingMessage)
+      list.compactMap { decodeMessageObject($0) }.forEach { upsertIncomingMessage($0) }
+      if let lastId = messages.last?.id {
+        WebSocketService.shared.localLastMessageIds[room.id] = lastId
+      }
 
     default:
       break
@@ -795,6 +798,20 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
       return Message.fromWebSocketPayload(dictionary, defaultRoomId: room.id)
     }
     return Message.fromWebSocketPayload(payload, defaultRoomId: room.id)
+  }
+
+  private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+    if message.id < 0 { return true }
+    guard let currentUser = TokenManager.shared.currentUser else { return false }
+    if message.userId == currentUser.id { return true }
+    if message.username == currentUser.username { return true }
+    if let displayName = message.displayName,
+      let currentDisplayName = currentUser.displayName,
+      displayName == currentDisplayName
+    {
+      return true
+    }
+    return false
   }
 
   private func isMessageFromCurrentUser(_ message: Message) -> Bool {

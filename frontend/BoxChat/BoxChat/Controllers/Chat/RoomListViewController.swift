@@ -186,7 +186,7 @@ final class RoomListViewController: UIViewController {
 
     private func joinFetchedRooms() {
         allRooms.forEach { room in
-            WebSocketService.shared.joinRoom(room.id)
+            WebSocketService.shared.sendEvent(type: "join_room", payload: ["room_id": room.id])
         }
     }
 
@@ -217,21 +217,46 @@ final class RoomListViewController: UIViewController {
 
     private func applyFilters(animated: Bool) {
         let query = searchTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-        rooms = allRooms.filter { room in
-            let matchesSearch = query.isEmpty || room.name.lowercased().contains(query)
-            let matchesFilter: Bool
-            switch selectedFilter {
-            case .all: matchesFilter = true
-            case .unread: matchesFilter = room.unreadCount > 0
-            case .groups: matchesFilter = room.memberCount > 1
-            case .friends: matchesFilter = room.memberCount <= 1
+        rooms = allRooms
+            .filter { room in
+                let matchesSearch = query.isEmpty || room.name.lowercased().contains(query)
+                let matchesFilter: Bool
+                switch selectedFilter {
+                case .all: matchesFilter = true
+                case .unread: matchesFilter = room.unreadCount > 0
+                case .groups: matchesFilter = room.memberCount > 1
+                case .friends: matchesFilter = room.memberCount <= 1
+                }
+                return matchesSearch && matchesFilter
             }
-            return matchesSearch && matchesFilter
-        }
+            .sorted { a, b in
+                let dateA = latestDate(for: a)
+                let dateB = latestDate(for: b)
+                return dateA > dateB
+            }
         tableView.reloadData()
         if animated { animateVisibleCells() }
     }
+    
+    private func latestDate(for room: Room) -> Date {
+        let iso = ISO8601DateFormatter()
 
+        let localLatest = ChatLocalStore.shared
+            .loadMessages(roomId: room.id)
+            .compactMap { iso.date(from: $0.createdAt) }
+            .max()
+
+        let serverLatest = room.lastMessage.flatMap {
+            iso.date(from: $0.createdAt)
+        }
+
+        let roomCreated = iso.date(from: room.createdAt)
+
+        return [localLatest, serverLatest, roomCreated]
+            .compactMap { $0 }
+            .max() ?? .distantPast
+    }
+    
     private func animateVisibleCells() {
         tableView.visibleCells.enumerated().forEach { index, cell in
             cell.alpha = 0
@@ -346,10 +371,16 @@ extension RoomListViewController: WebSocketServiceDelegate {
         case "new_message", "message_sent":
             guard let message = decodeMessage(from: payload),
                   let index = allRooms.firstIndex(where: { $0.id == message.roomId }) else { return }
+
             allRooms[index].lastMessage = message
+
             if !isMessageFromCurrentUser(message) {
                 allRooms[index].unreadCount += 1
             }
+
+            let room = allRooms.remove(at: index)
+            allRooms.insert(room, at: 0)
+
             applyFilters(animated: false)
 
         case "unread_update":
@@ -366,7 +397,23 @@ extension RoomListViewController: WebSocketServiceDelegate {
 
     private func decodeMessage(from payload: [String: Any]) -> Message? {
         let object = payload["message"] as? [String: Any] ?? payload
-        return Message.fromWebSocketPayload(object)
+        if let messageId = object["message_id"] as? Int {
+            return Message(
+                id: messageId,
+                roomId: object["room_id"] as? Int ?? -1,
+                userId: object["sender_id"] as? Int,
+                username: object["sender_username"] as? String,
+                displayName: object["sender_username"] as? String,
+                content: object["content"] as? String ?? "",
+                messageType: object["content_type"] as? String ?? "text",
+                fileUrl: object["file_url"] as? String,
+                fileName: object["file_name"] as? String,
+                status: "sent",
+                createdAt: object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
+            )
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
+        return try? JSONDecoder().decode(Message.self, from: data)
     }
 
     private func isMessageFromCurrentUser(_ message: Message) -> Bool {
