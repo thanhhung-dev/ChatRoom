@@ -20,18 +20,10 @@ class ClientEvent(str, Enum):
     STOP_TYPING   = "stop_typing"
     SYNC_MESSAGES = "sync_messages"
     MARK_READ     = "mark_read"
-    CALL_INVITE   = "call_invite"
-    CALL_ACCEPT   = "call_accept"
-    CALL_REJECT   = "call_reject"
-    CALL_END      = "call_end"
-    WEBRTC_OFFER  = "webrtc_offer"
-    WEBRTC_ANSWER = "webrtc_answer"
-    ICE_CANDIDATE = "ice_candidate"
     PING          = "ping"
 
 
 class ServerEvent(str, Enum):
-    CONNECTED         = "connected"
     USER_JOINED       = "user_joined"
     USER_LEFT         = "user_left"
     NEW_MESSAGE       = "new_message"
@@ -41,7 +33,6 @@ class ServerEvent(str, Enum):
     PONG              = "pong"
     ERROR             = "error"
     ONLINE_MEMBERS    = "online_members"
-    CALL_EVENT        = "call_event"
 
 
 
@@ -90,29 +81,12 @@ class PingPayload(BaseModel):
     pass
 
 
-class CallPayload(BaseModel):
-    room_id: int
-    call_id: str
-    is_video: bool = False
-
-
-class WebRTCPayload(BaseModel):
-    room_id: int
-    call_id: str
-    data: dict[str, Any]
-
-
 
 class UserJoinedPayload(BaseModel):
     room_id: int
     user_id: int
     username: str
     unread_count: int = 0
-
-
-class ConnectedPayload(BaseModel):
-    user_id: int
-    username: str
 
 
 class UserLeftPayload(BaseModel):
@@ -126,11 +100,9 @@ class NewMessagePayload(BaseModel):
     message_id: int
     sender_id: int
     sender_username: str
-    content: str | None = None
+    content: str
     content_type: str
     created_at: datetime
-    file_url: str | None = None
-    file_name: str | None = None
 
 
 class TypingIndicatorPayload(BaseModel):
@@ -165,16 +137,6 @@ class OnlineMembersPayload(BaseModel):
     members: list[dict[str, Any]]   # [{user_id, username, avatar_url?}]
 
 
-class CallEventPayload(BaseModel):
-    room_id: int
-    call_id: str
-    sender_id: int
-    sender_username: str
-    action: str
-    is_video: bool = False
-    data: dict[str, Any] | None = None
-
-
 
 _CLIENT_PAYLOAD_MAP: dict[ClientEvent, type[BaseModel]] = {
     ClientEvent.JOIN_ROOM:     JoinRoomPayload,
@@ -184,13 +146,6 @@ _CLIENT_PAYLOAD_MAP: dict[ClientEvent, type[BaseModel]] = {
     ClientEvent.STOP_TYPING:   TypingPayload,
     ClientEvent.SYNC_MESSAGES: SyncMessagesPayload,
     ClientEvent.MARK_READ:     MarkReadPayload,
-    ClientEvent.CALL_INVITE:   CallPayload,
-    ClientEvent.CALL_ACCEPT:   CallPayload,
-    ClientEvent.CALL_REJECT:   CallPayload,
-    ClientEvent.CALL_END:      CallPayload,
-    ClientEvent.WEBRTC_OFFER:  WebRTCPayload,
-    ClientEvent.WEBRTC_ANSWER: WebRTCPayload,
-    ClientEvent.ICE_CANDIDATE: WebRTCPayload,
     ClientEvent.PING:          PingPayload,
 }
 

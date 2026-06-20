@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.user import UpdateProfileRequest, UserPublicResponse, UserResponse
 from app.services import user_service
-from app.utils.file_storage import save_file
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -34,25 +33,6 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     return await user_service.update_profile(db, current_user.id, data)
-
-
-@router.post(
-    "/me/avatar",
-    response_model=UserResponse,
-    summary="Upload avatar cá nhân",
-    description="Upload ảnh avatar và cập nhật avatar_url của người dùng hiện tại.",
-)
-async def upload_my_avatar(
-    file: UploadFile,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    file_url, _ = save_file(file, current_user.id)
-    return await user_service.update_profile(
-        db,
-        current_user.id,
-        UpdateProfileRequest(avatar_url=file_url),
-    )
 
 
 @router.put(
