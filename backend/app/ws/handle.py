@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, update
@@ -15,7 +16,10 @@ from app.models.user import User
 from app.services.presence_services import PresenceService
 from app.ws.manager import manager
 from app.ws.protocol import (
+    CallEventPayload,
+    CallPayload,
     ClientEvent,
+    ConnectedPayload,
     JoinRoomPayload,
     LeaveRoomPayload,
     MarkReadPayload,
@@ -29,6 +33,7 @@ from app.ws.protocol import (
     TypingPayload,
     UnreadUpdatePayload,
     UserLeftPayload,
+    WebRTCPayload,
     build_error_message,
     build_server_message,
     parse_client_message,
@@ -37,13 +42,7 @@ from app.ws.protocol import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Auth helper
-# ---------------------------------------------------------------------------
-
 async def _authenticate(token: str, db: AsyncSession) -> User | None:
-    """Validate the access JWT and return the User row, or None if invalid."""
     try:
         payload = decode_token(token)
         if payload.get("type") != "access":
@@ -54,11 +53,6 @@ async def _authenticate(token: str, db: AsyncSession) -> User | None:
 
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
-
-
-# ---------------------------------------------------------------------------
-# Membership guard
-# ---------------------------------------------------------------------------
 
 async def _is_member(user_id: int, room_id: int, db: AsyncSession) -> RoomMember | None:
     result = await db.execute(
@@ -88,14 +82,19 @@ async def handle_join_room(
         )
         return
 
+    already_joined = manager.is_user_in_room(user.id, payload.room_id)
     manager.connect(user.id, payload.room_id, websocket)
-    await presence.user_connected(
-        user_id=user.id,
-        room_id=payload.room_id,
-        username=user.username,
-        unread_count=member.unread_count,
-    )
+    if not already_joined:
+        await presence.user_connected(
+            user_id=user.id,
+            room_id=payload.room_id,
+            username=user.username,
+            unread_count=member.unread_count,
+        )
     await presence.send_online_members(payload.room_id, user.id)
+    logger.info("JOIN_ROOM: user=%s room=%s | online=%s",
+                user.id, payload.room_id,
+                [m["user_id"] for m in manager.get_online_members(payload.room_id)])
 
 
 async def handle_leave_room(
@@ -104,7 +103,6 @@ async def handle_leave_room(
     db: AsyncSession,
     presence: PresenceService,
 ) -> None:
-    # broadcast first, then disconnect
     await manager.broadcast(
         payload.room_id,
         build_server_message(
@@ -121,7 +119,6 @@ async def handle_send_message(
     payload: SendMessagePayload,
     db: AsyncSession,
 ) -> None:
-    # Check membership
     member = await _is_member(user.id, payload.room_id, db)
     if not member:
         await manager.send_personal(
@@ -130,16 +127,15 @@ async def handle_send_message(
         )
         return
 
-    # Persist to DB
     message = Message(
         room_id=payload.room_id,
         user_id=user.id,
         content=payload.content,
         message_type=payload.content_type,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
     )
     db.add(message)
-    await db.flush()   # get message.id before broadcast
+    await db.flush()
 
     new_msg_payload = NewMessagePayload(
         room_id=payload.room_id,
@@ -149,13 +145,16 @@ async def handle_send_message(
         content=payload.content,
         content_type=payload.content_type,
         created_at=message.created_at,
+        file_url=message.file_url,
+        file_name=message.file_name,
     )
     broadcast_text = build_server_message(ServerEvent.NEW_MESSAGE, new_msg_payload)
 
-    # Broadcast to online members
+    online_ids = [m["user_id"] for m in manager.get_online_members(payload.room_id)]
+    logger.info("SEND_MESSAGE: room=%s sender=%s online_members=%s", payload.room_id, user.id, online_ids)
+
     await manager.broadcast(payload.room_id, broadcast_text)
 
-    # Increment unread_count for everyone else in the room
     await db.execute(
         update(RoomMember)
         .where(
@@ -165,8 +164,6 @@ async def handle_send_message(
         .values(unread_count=RoomMember.unread_count + 1)
     )
 
-    # Reset unread for online members (they just received the message)
-    online_ids = [m["user_id"] for m in manager.get_online_members(payload.room_id)]
     if online_ids:
         await db.execute(
             update(RoomMember)
@@ -216,7 +213,6 @@ async def handle_sync_messages(
     )
     messages = result.scalars().all()
 
-    # Build sender map to avoid N+1
     sender_ids = {m.user_id for m in messages}
     users_map: dict[int, User] = {}
     if sender_ids:
@@ -232,6 +228,8 @@ async def handle_sync_messages(
             content=m.content,
             content_type=m.message_type,
             created_at=m.created_at,
+            file_url=m.file_url,
+            file_name=m.file_name,
         )
         for m in messages
     ]
@@ -275,9 +273,38 @@ async def handle_mark_read(
     )
 
 
-# ---------------------------------------------------------------------------
-# Main endpoint
-# ---------------------------------------------------------------------------
+async def handle_call_event(
+    user: User,
+    event_type: ClientEvent,
+    payload: CallPayload | WebRTCPayload,
+    db: AsyncSession,
+) -> None:
+    member = await _is_member(user.id, payload.room_id, db)
+    if not member:
+        await manager.send_personal(
+            user.id,
+            build_error_message("NOT_MEMBER", "Cannot call in a room you're not in"),
+        )
+        return
+
+    is_video = payload.is_video if isinstance(payload, CallPayload) else False
+    data = payload.data if isinstance(payload, WebRTCPayload) else None
+    await manager.broadcast(
+        payload.room_id,
+        build_server_message(
+            ServerEvent.CALL_EVENT,
+            CallEventPayload(
+                room_id=payload.room_id,
+                call_id=payload.call_id,
+                sender_id=user.id,
+                sender_username=user.username,
+                action=event_type.value,
+                is_video=is_video,
+                data=data,
+            ),
+        ),
+        exclude_user=user.id,
+    )
 
 @router.websocket("/ws")
 async def websocket_endpoint(
@@ -285,13 +312,19 @@ async def websocket_endpoint(
     token: str,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    # --- Authenticate before accepting ---
     user = await _authenticate(token, db)
     if not user:
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
     await websocket.accept()
+    manager.connect_personal(user.id, websocket)
+    await websocket.send_text(json.dumps({
+        "type": "connected",
+        "payload": {"user_id": user.id, "username": user.username}
+    }))
+    logger.info("WS CONNECTED: user=%s username=%s", user.id, user.username)
+
     presence = PresenceService(db)
 
     try:
@@ -306,28 +339,38 @@ async def websocket_endpoint(
                 )
                 continue
 
-            # Route
             match event_type:
                 case ClientEvent.JOIN_ROOM:
-                    await handle_join_room(user, payload, db, presence, websocket)  # type: ignore[arg-type]
+                    await handle_join_room(user, payload, db, presence, websocket)
 
                 case ClientEvent.LEAVE_ROOM:
-                    await handle_leave_room(user, payload, db, presence)  # type: ignore[arg-type]
+                    await handle_leave_room(user, payload, db, presence) 
 
                 case ClientEvent.SEND_MESSAGE:
-                    await handle_send_message(user, payload, db)  # type: ignore[arg-type]
+                    await handle_send_message(user, payload, db) 
 
                 case ClientEvent.TYPING:
-                    await handle_typing(user, payload, is_typing=True)  # type: ignore[arg-type]
+                    await handle_typing(user, payload, is_typing=True)
 
                 case ClientEvent.STOP_TYPING:
-                    await handle_typing(user, payload, is_typing=False)  # type: ignore[arg-type]
+                    await handle_typing(user, payload, is_typing=False)
 
                 case ClientEvent.SYNC_MESSAGES:
-                    await handle_sync_messages(user, payload, db)  # type: ignore[arg-type]
+                    await handle_sync_messages(user, payload, db)
 
                 case ClientEvent.MARK_READ:
-                    await handle_mark_read(user, payload, db)  # type: ignore[arg-type]
+                    await handle_mark_read(user, payload, db) 
+
+                case (
+                    ClientEvent.CALL_INVITE
+                    | ClientEvent.CALL_ACCEPT
+                    | ClientEvent.CALL_REJECT
+                    | ClientEvent.CALL_END
+                    | ClientEvent.WEBRTC_OFFER
+                    | ClientEvent.WEBRTC_ANSWER
+                    | ClientEvent.ICE_CANDIDATE
+                ):
+                    await handle_call_event(user, event_type, payload, db)  # type: ignore[arg-type]
 
                 case ClientEvent.PING:
                     await websocket.send_text(
@@ -335,8 +378,10 @@ async def websocket_endpoint(
                     )
 
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected: user=%s", user.id)
+        logger.info("WS DISCONNECTED: user=%s", user.id)
     except Exception as exc:
         logger.exception("Unexpected WS error for user=%s: %s", user.id, exc)
     finally:
+        manager.disconnect_all(user.id)
+        manager.disconnect_personal(user.id)
         await presence.user_disconnected(user.id, user.username)

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
+from app.schemas.message import CreateMessageRequest, MessageResponse
 from app.schemas.room import (
     CreateRoomRequest,
     JoinRoomRequest,
@@ -11,7 +12,8 @@ from app.schemas.room import (
     RoomResponse,
     UpdateRoomRequest,
 )
-from app.services import room_service
+from app.services import message_service, room_service
+from app.utils.file_storage import save_file
 
 router = APIRouter(prefix="/api/v1/rooms", tags=["rooms"])
 
@@ -28,7 +30,8 @@ async def create_room(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RoomResponse:
-    return await room_service.create_room(db, current_user.id, data)
+    room = await room_service.create_room(db, current_user.id, data)
+    return await room_service.build_room_response(db, room, current_user.id)
 
 
 @router.get(
@@ -49,6 +52,28 @@ async def get_my_rooms(
     )
 
 
+@router.post(
+    "/{room_id}/avatar",
+    response_model=RoomResponse,
+    summary="Cập nhật ảnh nhóm",
+)
+async def upload_room_avatar(
+    room_id: int,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RoomResponse:
+    await room_service.is_admin(db, room_id, current_user.id)
+    file_url, _ = save_file(file, room_id)
+    room = await room_service.update_room(
+        db,
+        room_id,
+        current_user.id,
+        UpdateRoomRequest(avatar_url=file_url),
+    )
+    return await room_service.build_room_response(db, room, current_user.id)
+
+
 @router.get(
     "/{room_id}",
     response_model=RoomDetailResponse,
@@ -61,7 +86,30 @@ async def get_room(
     db: AsyncSession = Depends(get_db),
 ) -> RoomDetailResponse:
     room = await room_service.get_room(db, room_id)
-    return room
+    response = await room_service.build_room_response(db, room, current_user.id)
+    return RoomDetailResponse(**response.model_dump())
+
+
+@router.post(
+    "/{room_id}/messages",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Gửi tin nhắn văn bản",
+    description="Tạo một tin nhắn text trong phòng. Yêu cầu là thành viên phòng.",
+)
+async def send_room_message(
+    room_id: int,
+    data: CreateMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    return await message_service.create_message(
+        db,
+        room_id=room_id,
+        user_id=current_user.id,
+        content=data.content,
+        message_type=data.message_type,
+    )
 
 
 @router.patch(
@@ -76,7 +124,8 @@ async def update_room(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RoomResponse:
-    return await room_service.update_room(db, room_id, current_user.id, data)
+    room = await room_service.update_room(db, room_id, current_user.id, data)
+    return await room_service.build_room_response(db, room, current_user.id)
 
 
 @router.delete(
@@ -104,7 +153,8 @@ async def join_room(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RoomResponse:
-    return await room_service.join_room(db, current_user.id, data.invite_code)
+    room = await room_service.join_room(db, current_user.id, data.invite_code)
+    return await room_service.build_room_response(db, room, current_user.id)
 
 
 @router.post(
@@ -132,6 +182,8 @@ async def regenerate_invite_code(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms do not have invites")
     code = await room_service.generate_invite_code(db, room_id)
     return {"invite_code": code}
 
@@ -148,4 +200,22 @@ async def kick_member(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms are locked")
     await room_service.kick_member(db, room_id, current_user.id, user_id)
+
+
+@router.post(
+    "/{room_id}/members/{user_id}/make-admin",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Chuyển quyền quản trị viên",
+)
+async def make_admin(
+    room_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms are locked")
+    await room_service.transfer_admin(db, room_id, current_user.id, user_id)
