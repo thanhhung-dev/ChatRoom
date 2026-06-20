@@ -15,14 +15,6 @@ class ConnectionManager:
         self.rooms: dict[int, dict[int, WebSocket]] = {}
         # user_id -> set of room_ids
         self.user_rooms: dict[int, set[int]] = {}
-        # user_id -> WebSocket for app-wide notifications
-        self.personal: dict[int, WebSocket] = {}
-
-    def connect_personal(self, user_id: int, websocket: WebSocket) -> None:
-        self.personal[user_id] = websocket
-
-    def disconnect_personal(self, user_id: int) -> None:
-        self.personal.pop(user_id, None)
 
     def connect(self, user_id: int, room_id: int, websocket: WebSocket) -> None:
         """Register an already-accepted WebSocket for (user_id, room_id)."""
@@ -88,18 +80,9 @@ class ConnectionManager:
 
     async def send_personal(self, user_id: int, message: str) -> None:
         """
-        Send a message to the user's app-wide socket and all joined room sockets.
+        Send a message to all rooms this user is currently in.
         Useful for presence updates that target a specific user.
         """
-        personal_ws = self.personal.get(user_id)
-        if personal_ws:
-            try:
-                await personal_ws.send_text(message)
-                return
-            except Exception:
-                logger.warning("send_personal failed personal socket user=%s", user_id)
-                self.disconnect_personal(user_id)
-
         room_ids = list(self.user_rooms.get(user_id, set()))
         tasks = []
         for room_id in room_ids:

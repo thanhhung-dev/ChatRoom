@@ -12,7 +12,6 @@ class Room(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True, default="")
-    avatar_url: Mapped[str] = mapped_column(String(500), nullable=True)
     invite_code: Mapped[str] = mapped_column(
         String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4())
     )
