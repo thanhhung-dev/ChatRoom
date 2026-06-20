@@ -22,3 +22,4 @@ xcuserdata/
 **/*.xcuserstate
 **/__pycache__/
 backend/.env
+backend/uploads/
