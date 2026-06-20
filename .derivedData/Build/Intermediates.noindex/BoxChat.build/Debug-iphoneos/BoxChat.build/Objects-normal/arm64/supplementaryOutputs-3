@@ -1,0 +1,30 @@
+{
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Chat/CreateGroupViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateGroupViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateGroupViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateGroupViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateGroupViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateGroupViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Chat/CreateRoomViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateRoomViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateRoomViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateRoomViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateRoomViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/CreateRoomViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Chat/FriendsViewControlle.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/FriendsViewControlle.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/FriendsViewControlle.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/FriendsViewControlle.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/FriendsViewControlle.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/FriendsViewControlle.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Chat/GroupInfoViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/GroupInfoViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/GroupInfoViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/GroupInfoViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/GroupInfoViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/GroupInfoViewController.swiftdeps"
+  }
+}

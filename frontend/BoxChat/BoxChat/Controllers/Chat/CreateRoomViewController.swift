@@ -8,19 +8,19 @@ class CreateRoomViewController: UIViewController {
     private let glassCardView: UIVisualEffectView = {
         let blurEffect = UIBlurEffect(style: .systemUltraThinMaterial)
         let v = UIVisualEffectView(effect: blurEffect)
-        v.layer.cornerRadius = 30
+        v.layer.cornerRadius = BCTheme.Layout.radiusXL
         v.layer.masksToBounds = true
         v.layer.borderWidth = 1
         v.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
         return v
     }()
 
-    private let segmentControl: UISegmentedControl = {
+    private lazy var segmentControl: UISegmentedControl = {
         let sc = UISegmentedControl(items: ["Tạo Phòng Mới", "Tham Gia Bằng Mã"])
         sc.selectedSegmentIndex = 0
-        sc.selectedSegmentTintColor = .systemBlue
-        sc.setTitleTextAttributes([.foregroundColor: UIColor.secondaryLabel], for: .normal)
-        sc.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
+        sc.selectedSegmentTintColor = BCTheme.Colors.primary
+        sc.setTitleTextAttributes([.foregroundColor: BCTheme.Colors.textSecondary], for: .normal)
+        sc.setTitleTextAttributes([.foregroundColor: BCTheme.Colors.textOnPrimary], for: .selected)
         sc.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         return sc
     }()
@@ -28,42 +28,26 @@ class CreateRoomViewController: UIViewController {
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.text = "Kênh Trò Chuyện"
-        l.font = .systemFont(ofSize: 24, weight: .bold)
-        l.textColor = .label
+        l.font = BCTheme.Typography.title1
+        l.textColor = BCTheme.Colors.textPrimary
         l.textAlignment = .center
         return l
     }()
 
-    private lazy var mainInputField: UITextField = createCustomTextField(placeholder: "Tên phòng chat (bắt buộc)", iconName: "bubble.left.and.bubble.right.fill")
-    private lazy var subInputField: UITextField = createCustomTextField(placeholder: "Mô tả ngắn (không bắt buộc)", iconName: "doc.text.fill")
+    private lazy var mainInputField = BCTextField(title: "Tên phòng chat", placeholder: "Tên phòng chat (bắt buộc)", icon: "bubble.left.and.bubble.right.fill")
+    private lazy var subInputField = BCTextField(title: "Mô tả", placeholder: "Mô tả ngắn (không bắt buộc)", icon: "doc.text.fill")
 
-    private let actionButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setTitle("Xác Nhận", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-        b.backgroundColor = .systemBlue
-        b.setTitleColor(.white, for: .normal)
-        b.layer.cornerRadius = 22
-        b.layer.shadowColor = UIColor.systemBlue.cgColor
-        b.layer.shadowOpacity = 0.3
-        b.layer.shadowRadius = 8
-        b.layer.shadowOffset = CGSize(width: 0, height: 4)
+    private lazy var actionButton: BCButton = {
+        let b = BCButton(title: "Xác Nhận Tạo", style: .primary)
         b.addTarget(self, action: #selector(didTapActionButton), for: .touchUpInside)
         return b
-    }()
-
-    private let activityIndicator: UIActivityIndicatorView = {
-        let ai = UIActivityIndicatorView(style: .medium)
-        ai.color = .white
-        ai.hidesWhenStopped = true
-        return ai
     }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
         setupLayout()
-        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard)))
+        installTapToDismissKeyboard()
     }
 
     private func setupLayout() {
@@ -78,8 +62,6 @@ class CreateRoomViewController: UIViewController {
         containerStack.setCustomSpacing(12, after: titleLabel)
         containerStack.translatesAutoresizingMaskIntoConstraints = false
         glassCardView.contentView.addSubview(containerStack)
-        actionButton.addSubview(activityIndicator)
-        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             glassCardView.topAnchor.constraint(equalTo: view.topAnchor),
             glassCardView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -88,34 +70,8 @@ class CreateRoomViewController: UIViewController {
             containerStack.topAnchor.constraint(equalTo: glassCardView.topAnchor, constant: 28),
             containerStack.leadingAnchor.constraint(equalTo: glassCardView.leadingAnchor, constant: 24),
             containerStack.trailingAnchor.constraint(equalTo: glassCardView.trailingAnchor, constant: -24),
-            segmentControl.heightAnchor.constraint(equalToConstant: 36),
-            mainInputField.heightAnchor.constraint(equalToConstant: 52),
-            subInputField.heightAnchor.constraint(equalToConstant: 52),
-            actionButton.heightAnchor.constraint(equalToConstant: 48),
-            activityIndicator.centerXAnchor.constraint(equalTo: actionButton.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: actionButton.centerYAnchor)
+            segmentControl.heightAnchor.constraint(equalToConstant: 36)
         ])
-    }
-
-    private func createCustomTextField(placeholder: String, iconName: String) -> UITextField {
-        let tf = UITextField()
-        tf.placeholder = placeholder
-        tf.font = .systemFont(ofSize: 15)
-        tf.backgroundColor = UIColor.label.withAlphaComponent(0.04)
-        tf.layer.cornerRadius = 14
-        tf.clipsToBounds = true
-        tf.clearButtonMode = .whileEditing
-        tf.autocorrectionType = .no
-        tf.autocapitalizationType = .none
-        let iconView = UIImageView(image: UIImage(systemName: iconName))
-        iconView.tintColor = .secondaryLabel
-        iconView.contentMode = .scaleAspectFit
-        let iconContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 52))
-        iconView.frame = CGRect(x: 14, y: 17, width: 18, height: 18)
-        iconContainer.addSubview(iconView)
-        tf.leftView = iconContainer
-        tf.leftViewMode = .always
-        return tf
     }
 
     @objc private func dismissKeyboard() { view.endEditing(true) }
@@ -125,15 +81,15 @@ class CreateRoomViewController: UIViewController {
         dismissKeyboard()
         UIView.transition(with: view, duration: 0.25, options: .transitionCrossDissolve) {
             if self.isCreateMode {
-                self.mainInputField.placeholder = "Tên phòng chat (bắt buộc)"
+                self.mainInputField.textField.placeholder = "Tên phòng chat (bắt buộc)"
                 self.mainInputField.text = ""
                 self.subInputField.isHidden = false
-                self.actionButton.setTitle("Xác Nhận Tạo", for: .normal)
+                self.actionButton.setTitle("Xác Nhận Tạo")
             } else {
-                self.mainInputField.placeholder = "Nhập mã mời (Ví dụ: DESIGN003)"
+                self.mainInputField.textField.placeholder = "Nhập mã mời (Ví dụ: DESIGN003)"
                 self.mainInputField.text = ""
                 self.subInputField.isHidden = true
-                self.actionButton.setTitle("Tham Gia Ngay", for: .normal)
+                self.actionButton.setTitle("Tham Gia Ngay")
             }
         }
     }
@@ -175,15 +131,7 @@ class CreateRoomViewController: UIViewController {
     }
 
     private func setLoading(_ isLoading: Bool) {
-        if isLoading {
-            activityIndicator.startAnimating()
-            actionButton.setTitle("", for: .normal)
-            actionButton.isEnabled = false
-        } else {
-            activityIndicator.stopAnimating()
-            actionButton.setTitle(isCreateMode ? "Xác Nhận Tạo" : "Tham Gia Ngay", for: .normal)
-            actionButton.isEnabled = true
-        }
+        actionButton.isLoading = isLoading
     }
 
     private func showAlert(message: String) {

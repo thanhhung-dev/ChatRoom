@@ -11,8 +11,21 @@ class FeedCommentResponse(BaseModel):
     id: int
     post_id: int
     user: UserPublicResponse
-    content: str
+    content: str | None
+    media_url: str | None = None
+    media_name: str | None = None
+    media_type: str | None = None
     created_at: datetime
+
+
+class FeedPostMediaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    media_url: str
+    media_name: str | None = None
+    media_type: str | None = None
+    sort_order: int
 
 
 class FeedPostResponse(BaseModel):
@@ -26,6 +39,7 @@ class FeedPostResponse(BaseModel):
     comment_count: int
     my_reaction: str | None
     created_at: datetime
+    media_items: list[FeedPostMediaResponse] = []
 
 
 class FeedReactionRequest(BaseModel):
@@ -34,3 +48,7 @@ class FeedReactionRequest(BaseModel):
 
 class FeedCommentRequest(BaseModel):
     content: str
+
+
+class FeedPostUpdateRequest(BaseModel):
+    content: str | None = None

@@ -1,0 +1,30 @@
+{
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Utils/Constants.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Constants.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Constants.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Constants.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Constants.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Constants.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Utils/Theme.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Theme.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Theme.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Theme.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Theme.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/Theme.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/Cells/MessageCell.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/MessageCell.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/MessageCell.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/MessageCell.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/MessageCell.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/MessageCell.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/Cells/RoomCell.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RoomCell.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RoomCell.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RoomCell.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RoomCell.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RoomCell.swiftdeps"
+  }
+}

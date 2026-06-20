@@ -1,0 +1,30 @@
+{
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Auth/LoginViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LoginViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LoginViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LoginViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LoginViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LoginViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Auth/RegisterViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RegisterViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RegisterViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RegisterViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RegisterViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/RegisterViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Auth/ResetPasswordViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ResetPasswordViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ResetPasswordViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ResetPasswordViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ResetPasswordViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ResetPasswordViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Controllers/Chat/ChatRoomViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatRoomViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatRoomViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatRoomViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatRoomViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatRoomViewController.swiftdeps"
+  }
+}

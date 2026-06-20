@@ -250,8 +250,9 @@ async def generate_invite_code(
     if await is_direct_room(db, room_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Direct rooms do not have invites")
     room.invite_code = str(uuid.uuid4())
+    invite_code = room.invite_code
     await db.commit()
-    return room.invite_code
+    return invite_code
 
 
 async def get_room_members(

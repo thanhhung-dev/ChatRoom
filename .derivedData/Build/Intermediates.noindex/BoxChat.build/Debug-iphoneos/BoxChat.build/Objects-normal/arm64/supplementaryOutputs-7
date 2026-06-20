@@ -1,0 +1,30 @@
+{
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Services/AppNotificationService.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AppNotificationService.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AppNotificationService.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AppNotificationService.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AppNotificationService.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AppNotificationService.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Services/ChatLocalStore.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatLocalStore.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatLocalStore.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatLocalStore.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatLocalStore.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ChatLocalStore.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Services/ImageCache.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ImageCache.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ImageCache.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ImageCache.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ImageCache.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/ImageCache.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Services/LocalPeerDiscoveryService.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LocalPeerDiscoveryService.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LocalPeerDiscoveryService.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LocalPeerDiscoveryService.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LocalPeerDiscoveryService.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/LocalPeerDiscoveryService.swiftdeps"
+  }
+}

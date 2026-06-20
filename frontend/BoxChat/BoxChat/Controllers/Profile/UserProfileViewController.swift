@@ -5,36 +5,26 @@ class UserProfileViewController: UIViewController {
 
     private let cardView: UIView = {
         let view = UIView()
-        view.backgroundColor = .secondarySystemGroupedBackground
-        view.layer.cornerRadius = 24
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOffset = CGSize(width: 0, height: 4)
-        view.layer.shadowRadius = 12
-        view.layer.shadowOpacity = 0.05
+        view.backgroundColor = BCTheme.Colors.surfaceElevated
+        view.layer.cornerRadius = BCTheme.Layout.cornerRadiusL
+        BCTheme.Shadow.card(view)
         return view
     }()
 
-    private let avatarImageView: UIImageView = {
-        let iv = UIImageView()
-        iv.image = UIImage(systemName: "person.crop.circle.fill")
-        iv.tintColor = .systemGray4
-        iv.contentMode = .scaleAspectFill
-        iv.layer.cornerRadius = 60
-        iv.clipsToBounds = true
-        return iv
-    }()
+    private let avatarView = BCAvatar(size: 120)
 
     private let displayNameLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 24, weight: .bold)
+        label.font = BCTheme.Typography.title
+        label.textColor = BCTheme.Colors.textPrimary
         label.textAlignment = .center
         return label
     }()
 
     private let usernameLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 15, weight: .medium)
-        label.textColor = .secondaryLabel
+        label.font = BCTheme.Typography.body
+        label.textColor = BCTheme.Colors.textSecondary
         label.textAlignment = .center
         return label
     }()
@@ -42,47 +32,71 @@ class UserProfileViewController: UIViewController {
     private let actionStackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .vertical
-        stack.spacing = 12
+        stack.spacing = BCTheme.Layout.paddingM
         return stack
     }()
 
     private let changePasswordButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("Đổi mật khẩu", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        btn.backgroundColor = .systemBlue.withAlphaComponent(0.08)
-        btn.setTitleColor(.systemBlue, for: .normal)
-        btn.layer.cornerRadius = 14
+        var config = UIButton.Configuration.filled()
+        config.title = "Đổi mật khẩu"
+        config.baseBackgroundColor = BCTheme.Colors.primarySoft
+        config.baseForegroundColor = BCTheme.Colors.primary
+        config.cornerStyle = .large
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = BCTheme.Typography.subheadlineBold
+            return outgoing
+        }
+        btn.configuration = config
         return btn
     }()
 
     private let logoutButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("Đăng xuất tài khoản", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
-        btn.backgroundColor = .systemRed.withAlphaComponent(0.08)
-        btn.setTitleColor(.systemRed, for: .normal)
-        btn.layer.cornerRadius = 14
+        var config = UIButton.Configuration.filled()
+        config.title = "Đăng xuất tài khoản"
+        config.baseBackgroundColor = BCTheme.Colors.error.withAlphaComponent(0.12)
+        config.baseForegroundColor = BCTheme.Colors.error
+        config.cornerStyle = .large
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = BCTheme.Typography.subheadlineBold
+            return outgoing
+        }
+        btn.configuration = config
         return btn
     }()
 
     private let notificationButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("Bật thông báo tin nhắn", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        btn.backgroundColor = .systemGreen.withAlphaComponent(0.08)
-        btn.setTitleColor(.systemGreen, for: .normal)
-        btn.layer.cornerRadius = 14
+        var config = UIButton.Configuration.filled()
+        config.title = "Bật thông báo tin nhắn"
+        config.baseBackgroundColor = BCTheme.Colors.success.withAlphaComponent(0.12)
+        config.baseForegroundColor = BCTheme.Colors.success
+        config.cornerStyle = .large
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = BCTheme.Typography.subheadlineBold
+            return outgoing
+        }
+        btn.configuration = config
         return btn
     }()
 
     private let qrButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("Mã QR kết bạn", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        btn.backgroundColor = .systemBlue.withAlphaComponent(0.08)
-        btn.setTitleColor(.systemBlue, for: .normal)
-        btn.layer.cornerRadius = 14
+        var config = UIButton.Configuration.filled()
+        config.title = "Mã QR kết bạn"
+        config.baseBackgroundColor = BCTheme.Colors.primarySoft
+        config.baseForegroundColor = BCTheme.Colors.primary
+        config.cornerStyle = .large
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = BCTheme.Typography.subheadlineBold
+            return outgoing
+        }
+        btn.configuration = config
         return btn
     }()
 
@@ -90,11 +104,14 @@ class UserProfileViewController: UIViewController {
         super.viewDidLoad()
         title = "Hồ Sơ"
         navigationController?.navigationBar.prefersLargeTitles = true
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = BCTheme.Colors.background
+
         setupLayout()
         configureProfile()
-        avatarImageView.isUserInteractionEnabled = true
-        avatarImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapAvatar)))
+
+        avatarView.isUserInteractionEnabled = true
+        avatarView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapAvatar)))
+
         qrButton.addTarget(self, action: #selector(didTapQR), for: .touchUpInside)
         changePasswordButton.addTarget(self, action: #selector(didTapChangePassword), for: .touchUpInside)
         notificationButton.addTarget(self, action: #selector(didTapNotifications), for: .touchUpInside)
@@ -103,60 +120,55 @@ class UserProfileViewController: UIViewController {
 
     private func setupLayout() {
         view.addSubview(cardView)
-        cardView.addSubview(avatarImageView)
+        cardView.addSubview(avatarView)
         cardView.addSubview(displayNameLabel)
         cardView.addSubview(usernameLabel)
         view.addSubview(actionStackView)
+
         actionStackView.addArrangedSubview(qrButton)
         actionStackView.addArrangedSubview(notificationButton)
         actionStackView.addArrangedSubview(changePasswordButton)
         actionStackView.addArrangedSubview(logoutButton)
 
-        [cardView, avatarImageView, displayNameLabel, usernameLabel, actionStackView].forEach {
+        [cardView, avatarView, displayNameLabel, usernameLabel, actionStackView].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
         }
 
         NSLayoutConstraint.activate([
-            cardView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            cardView.heightAnchor.constraint(equalToConstant: 260),
+            cardView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: BCTheme.Layout.paddingL),
+            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
 
-            avatarImageView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 24),
-            avatarImageView.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
-            avatarImageView.widthAnchor.constraint(equalToConstant: 120),
-            avatarImageView.heightAnchor.constraint(equalToConstant: 120),
+            avatarView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: BCTheme.Layout.paddingL),
+            avatarView.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            avatarView.widthAnchor.constraint(equalToConstant: 120),
+            avatarView.heightAnchor.constraint(equalToConstant: 120),
 
-            displayNameLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
-            displayNameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
-            displayNameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            displayNameLabel.topAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: BCTheme.Layout.paddingM),
+            displayNameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            displayNameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -BCTheme.Layout.paddingL),
 
             usernameLabel.topAnchor.constraint(equalTo: displayNameLabel.bottomAnchor, constant: 4),
-            usernameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
-            usernameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            usernameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            usernameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -BCTheme.Layout.paddingL),
+            usernameLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -BCTheme.Layout.paddingL),
 
-            actionStackView.topAnchor.constraint(equalTo: cardView.bottomAnchor, constant: 24),
-            actionStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            actionStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            actionStackView.topAnchor.constraint(equalTo: cardView.bottomAnchor, constant: BCTheme.Layout.paddingL),
+            actionStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            actionStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
 
-            qrButton.heightAnchor.constraint(equalToConstant: 48),
-            notificationButton.heightAnchor.constraint(equalToConstant: 48),
-            changePasswordButton.heightAnchor.constraint(equalToConstant: 48),
-            logoutButton.heightAnchor.constraint(equalToConstant: 48)
+            qrButton.heightAnchor.constraint(equalToConstant: BCTheme.Layout.buttonHeight),
+            notificationButton.heightAnchor.constraint(equalToConstant: BCTheme.Layout.buttonHeight),
+            changePasswordButton.heightAnchor.constraint(equalToConstant: BCTheme.Layout.buttonHeight),
+            logoutButton.heightAnchor.constraint(equalToConstant: BCTheme.Layout.buttonHeight)
         ])
     }
 
     private func configureProfile() {
         guard let currentUser = TokenManager.shared.currentUser else { return }
-        displayNameLabel.text = currentUser.username
+        displayNameLabel.text = currentUser.displayName ?? currentUser.username
         usernameLabel.text = "@\(currentUser.username)"
-        if let url = Constants.mediaURL(from: currentUser.avatarUrl) {
-            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-                if let data = data, let image = UIImage(data: data) {
-                    DispatchQueue.main.async { self?.avatarImageView.image = image }
-                }
-            }.resume()
-        }
+        avatarView.configure(name: currentUser.displayName ?? currentUser.username, url: currentUser.avatarUrl)
     }
 
     @objc private func didTapLogout() {
@@ -179,19 +191,18 @@ class UserProfileViewController: UIViewController {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
             granted, _ in
             DispatchQueue.main.async {
-                let alert = UIAlertController(
-                    title: granted ? "Đã bật thông báo" : "Chưa bật được thông báo",
-                    message: granted ? "Bạn sẽ nhận thông báo khi có tin nhắn mới." : "Bạn có thể bật lại trong Settings của iOS.",
-                    preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
-                self.present(alert, animated: true)
+                if granted {
+                    BCToast.show("Bạn sẽ nhận thông báo khi có tin nhắn mới.", style: .success)
+                } else {
+                    BCToast.show("Vui lòng bật quyền thông báo trong Cài đặt.", style: .error)
+                }
             }
         }
     }
 
     @objc private func didTapQR() {
         guard let currentUser = TokenManager.shared.currentUser else { return }
-        let displayName = ((currentUser.displayName?.isEmpty) != nil) ? currentUser.username : currentUser.displayName
+        let displayName = !(currentUser.displayName?.isEmpty ?? true) ? currentUser.displayName! : currentUser.username
         let qr = QRCodeViewController(
             payload: Constants.friendLink(username: currentUser.username),
             heading: "Mã QR kết bạn",
@@ -216,12 +227,20 @@ extension UserProfileViewController: UIImagePickerControllerDelegate, UINavigati
         picker.dismiss(animated: true)
         guard let image = (info[.editedImage] ?? info[.originalImage]) as? UIImage,
               let data = image.jpegData(compressionQuality: 0.78) else { return }
-        avatarImageView.image = image
-        NetworkManager.shared.uploadUserAvatar(imageData: data) { result in
+
+        BCToast.show("Đang tải ảnh lên...", style: .success)
+
+        NetworkManager.shared.uploadUserAvatar(imageData: data) { [weak self] result in
             DispatchQueue.main.async {
                 if case .success(let user) = result {
                     TokenManager.shared.currentUser = user
-                    self.configureProfile()
+                    if let urlString = user.avatarUrl, let url = URL(string: urlString) {
+                        ImageCache.shared.remove(for: url)
+                    }
+                    self?.configureProfile()
+                    BCToast.show("Cập nhật ảnh thành công", style: .success)
+                } else {
+                    BCToast.show("Tải ảnh thất bại", style: .error)
                 }
             }
         }

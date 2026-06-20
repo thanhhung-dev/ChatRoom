@@ -10,6 +10,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_boxchat-peer._tcp</string>
+		<string>_boxchat-peer._udp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>BoxChat cần camera để gọi video và cập nhật ảnh đại diện.</string>

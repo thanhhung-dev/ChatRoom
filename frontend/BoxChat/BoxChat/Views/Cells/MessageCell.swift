@@ -3,7 +3,7 @@ import UIKit
 final class MessageCell: UITableViewCell {
   static let identifier = "MessageCell"
 
-  private let avatarView = UILabel()
+  private let avatarView = BCAvatar(size: 32)
   private let nameLabel = UILabel()
   private let bubbleView = UIView()
   private let stackView = UIStackView()
@@ -13,17 +13,43 @@ final class MessageCell: UITableViewCell {
   private let fileNameLabel = UILabel()
   private let fileMetaLabel = UILabel()
   private let messageImageView = UIImageView()
-  private let metaLabel = UILabel()
+
+  private let metaStack = UIStackView()
+  private let timeLabel = UILabel()
+  private let statusImageView = UIImageView()
+
   private let reactionLabel = UILabel()
 
   private var leadingConstraint: NSLayoutConstraint!
   private var trailingConstraint: NSLayoutConstraint!
   private var imageHeightConstraint: NSLayoutConstraint!
-  private var imageDownloadTask: URLSessionDataTask?
+  private var imageWidthConstraint: NSLayoutConstraint!
+
+  private var imageLoadTask: URLSessionDataTask?
+
+  private static let isoFormatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+
+  private static let fallbackIsoFormatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    return formatter
+  }()
+
+  private static let timeFormatter: DateFormatter = {
+    let out = DateFormatter()
+    out.dateFormat = "HH:mm"
+    return out
+  }()
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
     setupViews()
+    registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (cell: MessageCell, _) in
+        cell.updateDynamicLayerColors()
+    }
   }
 
   required init?(coder: NSCoder) {
@@ -32,18 +58,14 @@ final class MessageCell: UITableViewCell {
 
   override func prepareForReuse() {
     super.prepareForReuse()
-    imageDownloadTask?.cancel()
-    imageDownloadTask = nil
+    imageLoadTask?.cancel()
+    imageLoadTask = nil
     messageImageView.image = nil
     messageImageView.isHidden = true
     fileCardView.isHidden = true
     messageLabel.isHidden = false
     reactionLabel.isHidden = true
-  }
-
-  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-    super.traitCollectionDidChange(previousTraitCollection)
-    updateDynamicLayerColors()
+    avatarView.prepareForReuse()
   }
 
   private func setupViews() {
@@ -51,18 +73,10 @@ final class MessageCell: UITableViewCell {
     contentView.backgroundColor = .clear
     selectionStyle = .none
 
-    avatarView.font = .systemFont(ofSize: 15, weight: .bold)
-    avatarView.textAlignment = .center
-    avatarView.textColor = .white
-    avatarView.backgroundColor = .systemTeal
-    avatarView.layer.cornerRadius = 16
-    avatarView.clipsToBounds = true
+    nameLabel.font = BCTheme.Typography.captionBold
+    nameLabel.textColor = BCTheme.Colors.textSecondary
 
-    nameLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-    nameLabel.textColor = .secondaryLabel
-
-    bubbleView.layer.cornerRadius = 18
-    bubbleView.layer.cornerCurve = .continuous
+    bubbleView.bcCornerRadius(18)
     updateDynamicLayerColors()
     bubbleView.layer.shadowOpacity = 0.06
     bubbleView.layer.shadowRadius = 7
@@ -72,44 +86,50 @@ final class MessageCell: UITableViewCell {
     stackView.spacing = 8
     stackView.alignment = .fill
 
-    messageLabel.font = .systemFont(ofSize: 15)
+    messageLabel.font = BCTheme.Typography.body
     messageLabel.numberOfLines = 0
-    // Cho phép label co lại theo nội dung
     messageLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
     messageLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-    messageImageView.contentMode = .scaleAspectFit
+    messageImageView.contentMode = .scaleAspectFill
     messageImageView.clipsToBounds = true
-    messageImageView.layer.cornerRadius = 14
-    messageImageView.layer.cornerCurve = .continuous
-    messageImageView.backgroundColor = .systemGray5
+    messageImageView.bcCornerRadius(14)
+    messageImageView.backgroundColor = BCTheme.Colors.surfaceElevated
     messageImageView.isHidden = true
 
-    fileCardView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.10)
     fileCardView.layer.cornerRadius = 14
     fileCardView.isHidden = true
 
     fileIconView.image = UIImage(systemName: "doc.fill")
-    fileIconView.tintColor = .systemBlue
     fileIconView.contentMode = .scaleAspectFit
 
-    fileNameLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+    fileNameLabel.font = BCTheme.Typography.calloutBold
     fileNameLabel.numberOfLines = 1
 
-    fileMetaLabel.font = .systemFont(ofSize: 11)
-    fileMetaLabel.textColor = .secondaryLabel
+    fileMetaLabel.font = BCTheme.Typography.caption
+    fileMetaLabel.textColor = BCTheme.Colors.textSecondary
 
-    metaLabel.font = .systemFont(ofSize: 10, weight: .medium)
-    metaLabel.textColor = .tertiaryLabel
+    metaStack.axis = .horizontal
+    metaStack.spacing = 4
+    metaStack.alignment = .center
 
-    reactionLabel.font = .systemFont(ofSize: 13)
+    timeLabel.font = BCTheme.Typography.micro
+    timeLabel.textColor = BCTheme.Colors.textTertiary
+
+    statusImageView.contentMode = .scaleAspectFit
+    statusImageView.tintColor = BCTheme.Colors.textTertiary
+
+    metaStack.addArrangedSubview(timeLabel)
+    metaStack.addArrangedSubview(statusImageView)
+
+    reactionLabel.font = BCTheme.Typography.subheadline
     reactionLabel.textAlignment = .center
     reactionLabel.backgroundColor = .clear
     reactionLabel.layer.shadowOpacity = 0
     reactionLabel.clipsToBounds = true
     reactionLabel.isHidden = true
 
-    [avatarView, nameLabel, bubbleView, metaLabel, reactionLabel].forEach {
+    [avatarView, nameLabel, bubbleView, metaStack, reactionLabel].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
       contentView.addSubview($0)
     }
@@ -124,29 +144,22 @@ final class MessageCell: UITableViewCell {
       fileCardView.addSubview($0)
     }
 
-    leadingConstraint = bubbleView.leadingAnchor.constraint(
-      equalTo: avatarView.trailingAnchor, constant: 8)
-    trailingConstraint = bubbleView.trailingAnchor.constraint(
-      equalTo: contentView.trailingAnchor, constant: -14)
+    leadingConstraint = bubbleView.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 8)
+    trailingConstraint = bubbleView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14)
     imageHeightConstraint = messageImageView.heightAnchor.constraint(equalToConstant: 170)
+    imageWidthConstraint = messageImageView.widthAnchor.constraint(equalToConstant: 230)
 
     NSLayoutConstraint.activate([
       avatarView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
       avatarView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 18),
-      avatarView.widthAnchor.constraint(equalToConstant: 32),
-      avatarView.heightAnchor.constraint(equalToConstant: 32),
 
       nameLabel.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 8),
       nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
-      nameLabel.trailingAnchor.constraint(
-        lessThanOrEqualTo: contentView.trailingAnchor, constant: -80),
+      nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -80),
 
       bubbleView.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 3),
-      bubbleView.bottomAnchor.constraint(equalTo: metaLabel.topAnchor, constant: -3),
-      // Tối đa 74% chiều rộng màn hình
-      bubbleView.widthAnchor.constraint(
-        lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.74),
-      // Tối thiểu đủ chứa nội dung — bubble co sát theo text
+      bubbleView.bottomAnchor.constraint(equalTo: metaStack.topAnchor, constant: -3),
+      bubbleView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: BCTheme.Layout.maxBubbleWidthRatio),
       bubbleView.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
 
       stackView.topAnchor.constraint(equalTo: bubbleView.topAnchor, constant: 10),
@@ -154,7 +167,7 @@ final class MessageCell: UITableViewCell {
       stackView.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -12),
       stackView.bottomAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: -10),
 
-      messageImageView.widthAnchor.constraint(lessThanOrEqualToConstant: 230),
+      imageWidthConstraint,
 
       fileCardView.heightAnchor.constraint(equalToConstant: 58),
       fileIconView.leadingAnchor.constraint(equalTo: fileCardView.leadingAnchor, constant: 12),
@@ -170,8 +183,10 @@ final class MessageCell: UITableViewCell {
       fileMetaLabel.trailingAnchor.constraint(equalTo: fileNameLabel.trailingAnchor),
       fileMetaLabel.topAnchor.constraint(equalTo: fileNameLabel.bottomAnchor, constant: 3),
 
-      metaLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -7),
-      metaLabel.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -4),
+      metaStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -7),
+      metaStack.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -4),
+      statusImageView.widthAnchor.constraint(equalToConstant: 12),
+      statusImageView.heightAnchor.constraint(equalToConstant: 12),
 
       reactionLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 30),
       reactionLabel.heightAnchor.constraint(equalToConstant: 24),
@@ -181,25 +196,28 @@ final class MessageCell: UITableViewCell {
   }
 
   private func updateDynamicLayerColors() {
-    bubbleView.layer.shadowColor = UIColor.label.withAlphaComponent(0.14).cgColor
+    BCTheme.Shadow.updateShadowColor(bubbleView, color: UIColor.label.withAlphaComponent(0.14))
   }
 
   func configure(with message: Message, isMe: Bool, reaction: String?, localImage: UIImage?) {
-    nameLabel.text = isMe ? "" : (message.displayName ?? message.username ?? "Member")
+    let senderName = message.displayName ?? message.username ?? "Member"
+    nameLabel.text = isMe ? "" : senderName
     nameLabel.isHidden = isMe
     avatarView.isHidden = isMe
-    avatarView.text = initials(from: message.displayName ?? message.username ?? "?")
+    avatarView.configure(name: senderName)
 
     leadingConstraint.isActive = !isMe
     trailingConstraint.isActive = isMe
 
-    let senderColor = avatarColor(from: message.displayName ?? message.username ?? "?")
-    bubbleView.backgroundColor = isMe ? .systemBlue : senderColor.withAlphaComponent(0.14)
-    avatarView.backgroundColor = senderColor
+    let senderColor = BCTheme.Colors.avatarColor(for: senderName)
+    bubbleView.backgroundColor = isMe ? BCTheme.Colors.bubbleOutgoing : BCTheme.Colors.bubbleIncoming
     nameLabel.textColor = senderColor
-    messageLabel.textColor = isMe ? .white : .label
-    fileNameLabel.textColor = isMe ? .white : .label
-    fileMetaLabel.textColor = isMe ? UIColor.white.withAlphaComponent(0.78) : .secondaryLabel
+    messageLabel.textColor = isMe ? BCTheme.Colors.bubbleTextOutgoing : BCTheme.Colors.bubbleTextIncoming
+    fileNameLabel.textColor = messageLabel.textColor
+    fileMetaLabel.textColor = isMe ? UIColor.white.withAlphaComponent(0.78) : BCTheme.Colors.textSecondary
+
+    fileCardView.backgroundColor = isMe ? UIColor.white.withAlphaComponent(0.2) : BCTheme.Colors.primary.withAlphaComponent(0.1)
+    fileIconView.tintColor = isMe ? .white : BCTheme.Colors.primary
 
     messageLabel.text = message.content
     messageLabel.isHidden = message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -208,22 +226,47 @@ final class MessageCell: UITableViewCell {
     if isMediaOnly(message: message, localImage: localImage) {
       bubbleView.backgroundColor = .clear
     }
-    metaLabel.text =
-      "\(shortTime(from: message.createdAt)) \(statusGlyph(for: message.status, isMe: isMe))"
+
+    timeLabel.text = shortTime(from: message.createdAt)
+    configureStatus(for: message.status, isMe: isMe)
+
     reactionLabel.text = reaction
     reactionLabel.isHidden = reaction == nil
+  }
+
+  private func configureStatus(for status: String, isMe: Bool) {
+      guard isMe else {
+          statusImageView.isHidden = true
+          return
+      }
+      statusImageView.isHidden = false
+      statusImageView.tintColor = BCTheme.Colors.textTertiary
+
+      switch status {
+      case "read":
+          statusImageView.image = UIImage(systemName: "checkmark.circle.fill")
+          statusImageView.tintColor = BCTheme.Colors.primary
+      case "delivered", "sent":
+          statusImageView.image = UIImage(systemName: "checkmark")
+      case "sending":
+          statusImageView.image = UIImage(systemName: "arrow.up.circle")
+      case "local":
+          statusImageView.image = UIImage(systemName: "checkmark")
+      default:
+          statusImageView.isHidden = true
+      }
   }
 
   private func configureAttachment(message: Message, localImage: UIImage?) {
     fileCardView.isHidden = true
     messageImageView.isHidden = true
     imageHeightConstraint.isActive = false
+    imageWidthConstraint.isActive = false
 
     if let localImage {
       messageImageView.image = localImage
       messageImageView.isHidden = false
-      imageHeightConstraint.constant = 190
-      imageHeightConstraint.isActive = true
+      applyImageSize(localImage)
       return
     }
 
@@ -241,17 +284,25 @@ final class MessageCell: UITableViewCell {
 
     if isImage, let url = Constants.mediaURL(from: message.fileUrl) {
       messageImageView.isHidden = false
-      imageHeightConstraint.constant = 190
-      imageHeightConstraint.isActive = true
-      if url.isFileURL, let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
-        messageImageView.image = image
+      if url.isFileURL {
+        DispatchQueue.global(qos: .userInitiated).async {
+          if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+            DispatchQueue.main.async { [weak self] in
+              self?.messageImageView.image = image
+              self?.applyImageSize(image)
+            }
+          }
+        }
         return
       }
-      imageDownloadTask = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-        guard let self, let data, let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { self.messageImageView.image = image }
+
+      imageLoadTask = ImageCache.shared.load(from: url) { [weak self] image in
+          guard let self, let image else { return }
+          UIView.transition(with: self.messageImageView, duration: 0.2, options: .transitionCrossDissolve) {
+              self.messageImageView.image = image
+          }
+          self.applyImageSize(image)
       }
-      imageDownloadTask?.resume()
       return
     }
 
@@ -263,42 +314,27 @@ final class MessageCell: UITableViewCell {
     }
   }
 
+  private func applyImageSize(_ image: UIImage) {
+    let maxWidth: CGFloat = 250
+    let minHeight: CGFloat = 150
+    let maxHeight: CGFloat = 360
+    let ratio = image.size.height / max(image.size.width, 1)
+    let width = image.size.width > image.size.height ? maxWidth : min(maxWidth, 220)
+    let height = min(maxHeight, max(minHeight, width * ratio))
+    imageWidthConstraint.constant = width
+    imageHeightConstraint.constant = height
+    imageWidthConstraint.isActive = true
+    imageHeightConstraint.isActive = true
+  }
+
   private func isMediaOnly(message: Message, localImage: UIImage?) -> Bool {
     let hasImage = localImage != nil || message.fileUrl != nil
     let hasText = !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     return hasImage && !hasText
   }
 
-  private func initials(from name: String) -> String {
-    let parts = name.split(separator: " ")
-    let value = parts.prefix(2).compactMap { $0.first }.map(String.init).joined()
-    return value.isEmpty ? "?" : value.uppercased()
-  }
-
-  private func avatarColor(from name: String) -> UIColor {
-    let colors: [UIColor] = [
-      .systemBlue, .systemTeal, .systemIndigo, .systemPink, .systemGreen, .systemOrange,
-    ]
-    let total = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-    return colors[abs(total) % colors.count]
-  }
-
   private func shortTime(from isoString: String) -> String {
-    let formatter = ISO8601DateFormatter()
-    guard let date = formatter.date(from: isoString) else { return "" }
-    let out = DateFormatter()
-    out.dateFormat = "HH:mm"
-    return out.string(from: date)
-  }
-
-  private func statusGlyph(for status: String, isMe: Bool) -> String {
-    guard isMe else { return "" }
-    switch status {
-    case "read": return "✓✓"
-    case "delivered", "sent": return "✓"
-    case "sending": return "..."
-    case "local": return "✓"
-    default: return ""
-    }
+    guard let date = Self.isoFormatter.date(from: isoString) ?? Self.fallbackIsoFormatter.date(from: isoString) else { return "" }
+    return Self.timeFormatter.string(from: date)
   }
 }

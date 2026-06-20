@@ -119,6 +119,13 @@ final class NetworkManager {
       return .failure(NetworkError.serverError(msg))
     }
 
+    if data.isEmpty || statusCode == 204 {
+      let emptyObject = Data("{}".utf8)
+      if let value = try? decoder.decode(T.self, from: emptyObject) {
+        return .success(value)
+      }
+    }
+
     if let value = try? decoder.decode(T.self, from: data) {
       return .success(value)
     }
@@ -375,6 +382,12 @@ extension NetworkManager {
 // MARK: - Feed APIs
 
 extension NetworkManager {
+  struct UploadMediaItem {
+    let data: Data
+    let fileName: String
+    let mimeType: String
+  }
+
   func fetchFeed(completion: @escaping (Result<[FeedPostModel], Error>) -> Void) {
     request(path: "/feed/posts", completion: completion)
   }
@@ -413,6 +426,29 @@ extension NetworkManager {
     )
   }
 
+  func createFeedPost(
+    content: String,
+    mediaItems: [UploadMediaItem],
+    completion: @escaping (Result<FeedPostModel, Error>) -> Void
+  ) {
+    let totalBytes = mediaItems.reduce(0) { $0 + $1.data.count }
+    guard totalBytes <= Constants.maxUploadSizeBytes else {
+      completion(.failure(NetworkError.fileTooLarge(maxMB: Constants.maxUploadSizeMB)))
+      return
+    }
+    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !mediaItems.isEmpty else {
+      completion(.failure(NetworkError.serverError("Bài đăng cần có nội dung hoặc ảnh.")))
+      return
+    }
+    uploadMultipartFiles(
+      path: "/feed/posts",
+      files: mediaItems,
+      fileFieldName: "files",
+      extraFields: ["content": content],
+      completion: completion
+    )
+  }
+
   func reactFeedPost(
     postId: Int,
     reaction: String,
@@ -426,6 +462,31 @@ extension NetworkManager {
     )
   }
 
+  func updateFeedPost(
+    postId: Int,
+    content: String,
+    completion: @escaping (Result<FeedPostModel, Error>) -> Void
+  ) {
+    request(
+      path: "/feed/posts/\(postId)",
+      method: "PATCH",
+      body: ["content": content],
+      completion: completion
+    )
+  }
+
+  func deleteFeedPost(postId: Int, completion: @escaping (Result<Bool, Error>) -> Void) {
+    struct Empty: Codable {}
+    request(path: "/feed/posts/\(postId)", method: "DELETE") { (result: Result<Empty, Error>) in
+      switch result {
+      case .success:
+        completion(.success(true))
+      case .failure(let error):
+        completion(.failure(error))
+      }
+    }
+  }
+
   func fetchFeedComments(
     postId: Int,
     completion: @escaping (Result<[FeedCommentModel], Error>) -> Void
@@ -436,12 +497,34 @@ extension NetworkManager {
   func addFeedComment(
     postId: Int,
     content: String,
+    fileData: Data? = nil,
+    fileName: String? = nil,
+    mimeType: String = "application/octet-stream",
     completion: @escaping (Result<FeedCommentModel, Error>) -> Void
   ) {
-    request(
+    if let fileData, let fileName {
+      guard fileData.count <= Constants.maxUploadSizeBytes else {
+        completion(.failure(NetworkError.fileTooLarge(maxMB: Constants.maxUploadSizeMB)))
+        return
+      }
+      uploadMultipart(
+        path: "/feed/posts/\(postId)/comments",
+        fileData: fileData,
+        fileName: fileName,
+        mimeType: mimeType,
+        extraFields: ["content": content],
+        completion: completion
+      )
+      return
+    }
+
+    uploadMultipart(
       path: "/feed/posts/\(postId)/comments",
-      method: "POST",
-      body: ["content": content],
+      fileData: Data(),
+      fileName: "",
+      mimeType: mimeType,
+      extraFields: ["content": content],
+      includeFilePart: false,
       completion: completion
     )
   }
@@ -663,6 +746,80 @@ extension NetworkManager {
               mimeType: mimeType,
               extraFields: extraFields,
               includeFilePart: includeFilePart,
+              completion: completion
+            )
+          } else {
+            TokenManager.shared.clear()
+            DispatchQueue.main.async {
+              NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
+            }
+            completion(.failure(NetworkError.sessionExpired))
+          }
+        }
+        return
+      }
+      completion(self.decodeWrapped(T.self, from: data, statusCode: statusCode))
+    }.resume()
+  }
+
+  private func uploadMultipartFiles<T: Codable>(
+    path: String,
+    files: [UploadMediaItem],
+    fileFieldName: String,
+    extraFields: [String: String] = [:],
+    completion: @escaping (Result<T, Error>) -> Void
+  ) {
+    guard let url = URL(string: "\(Constants.apiBaseURL)\(path)") else {
+      completion(.failure(NetworkError.invalidURL))
+      return
+    }
+
+    let boundary = "Boundary-\(UUID().uuidString)"
+    var urlRequest = URLRequest(url: url)
+    urlRequest.httpMethod = "POST"
+    urlRequest.timeoutInterval = 60
+    urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    if let token = TokenManager.shared.accessToken {
+      urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    var bodyData = Data()
+    for file in files {
+      bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
+      bodyData.append("Content-Disposition: form-data; name=\"\(fileFieldName)\"; filename=\"\(file.fileName)\"\r\n".data(using: .utf8)!)
+      bodyData.append("Content-Type: \(file.mimeType)\r\n\r\n".data(using: .utf8)!)
+      bodyData.append(file.data)
+      bodyData.append("\r\n".data(using: .utf8)!)
+    }
+
+    for (name, value) in extraFields where !value.isEmpty {
+      bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
+      bodyData.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+      bodyData.append("\(value)\r\n".data(using: .utf8)!)
+    }
+    bodyData.append("--\(boundary)--\r\n".data(using: .utf8)!)
+    urlRequest.httpBody = bodyData
+
+    URLSession.shared.dataTask(with: urlRequest) { [weak self] data, response, error in
+      guard let self else { return }
+      if error != nil {
+        completion(.failure(NetworkError.noConnection))
+        return
+      }
+      guard let data else {
+        completion(.failure(NetworkError.noData))
+        return
+      }
+
+      let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+      if statusCode == 401 {
+        self.refreshAccessToken { success in
+          if success {
+            self.uploadMultipartFiles(
+              path: path,
+              files: files,
+              fileFieldName: fileFieldName,
+              extraFields: extraFields,
               completion: completion
             )
           } else {

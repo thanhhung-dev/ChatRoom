@@ -1,0 +1,30 @@
+{
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/AnimatedIconButton.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AnimatedIconButton.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AnimatedIconButton.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AnimatedIconButton.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AnimatedIconButton.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/AnimatedIconButton.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/EmojiPickerViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/EmojiPickerViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/EmojiPickerViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/EmojiPickerViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/EmojiPickerViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/EmojiPickerViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/QRCodeScannerViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeScannerViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeScannerViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeScannerViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeScannerViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeScannerViewController.swiftdeps"
+  },
+  "/Users/caohai3105/ChatRoom/frontend/BoxChat/BoxChat/Views/QRCodeViewController.swift" : {
+    "const-values" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeViewController.swiftconstvalues",
+    "dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeViewController.d",
+    "diagnostics" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeViewController.dia",
+    "object" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeViewController.o",
+    "swift-dependencies" : "/Users/caohai3105/ChatRoom/.derivedData/Build/Intermediates.noindex/BoxChat.build/Debug-iphoneos/BoxChat.build/Objects-normal/arm64/QRCodeViewController.swiftdeps"
+  }
+}

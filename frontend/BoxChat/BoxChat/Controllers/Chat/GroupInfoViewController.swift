@@ -7,9 +7,17 @@ final class GroupInfoViewController: UIViewController {
 
   private let scrollView = UIScrollView()
   private let contentStack = UIStackView()
-  private let avatarView = UIImageView()
+  private let avatarView = BCAvatar(size: 88)
   private let titleLabel = UILabel()
   private let memberLabel = UILabel()
+
+  private let optionsContainer: UIView = {
+      let view = UIView()
+      view.backgroundColor = BCTheme.Colors.surfaceElevated
+      view.layer.cornerRadius = BCTheme.Layout.cornerRadiusL
+      BCTheme.Shadow.card(view)
+      return view
+  }()
   private let optionsStack = UIStackView()
 
   init(room: Room) {
@@ -23,7 +31,7 @@ final class GroupInfoViewController: UIViewController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     navigationItem.title = room.isDirect ? "Thông tin riêng tư" : "Thông tin nhóm"
     navigationItem.largeTitleDisplayMode = .never
     navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -60,10 +68,10 @@ final class GroupInfoViewController: UIViewController {
       scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
       contentStack.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 24),
-      contentStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 24),
-      contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -24),
+      contentStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: BCTheme.Layout.paddingL),
+      contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -BCTheme.Layout.paddingL),
       contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -28),
-      contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -48),
+      contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -(BCTheme.Layout.paddingL * 2)),
     ])
 
     contentStack.addArrangedSubview(headerView())
@@ -71,18 +79,23 @@ final class GroupInfoViewController: UIViewController {
 
     optionsStack.axis = .vertical
     optionsStack.spacing = 0
-    contentStack.addArrangedSubview(optionsStack)
+    optionsStack.translatesAutoresizingMaskIntoConstraints = false
+
+    optionsContainer.addSubview(optionsStack)
+    NSLayoutConstraint.activate([
+        optionsStack.topAnchor.constraint(equalTo: optionsContainer.topAnchor, constant: 8),
+        optionsStack.leadingAnchor.constraint(equalTo: optionsContainer.leadingAnchor),
+        optionsStack.trailingAnchor.constraint(equalTo: optionsContainer.trailingAnchor),
+        optionsStack.bottomAnchor.constraint(equalTo: optionsContainer.bottomAnchor, constant: -8)
+    ])
+
+    contentStack.addArrangedSubview(optionsContainer)
   }
 
   private func reloadData() {
     messages = ChatLocalStore.shared.loadMessages(roomId: room.id)
-    avatarView.image = UIImage(systemName: room.isDirect ? "person.crop.circle.fill" : "person.3.fill")
-    if let url = Constants.mediaURL(from: room.displayAvatarURL) {
-      URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-        guard let self, let data, let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { self.avatarView.image = image }
-      }.resume()
-    }
+    avatarView.configure(name: room.displayName, url: room.displayAvatarURL)
+
     navigationItem.title = room.isDirect ? "Thông tin riêng tư" : "Thông tin nhóm"
     navigationItem.rightBarButtonItem = room.isDirect ? nil : UIBarButtonItem(
       title: "Sửa", style: .done, target: self, action: #selector(didTapEdit))
@@ -127,18 +140,12 @@ final class GroupInfoViewController: UIViewController {
   private func headerView() -> UIView {
     let container = UIView()
 
-    avatarView.tintColor = .systemBlue
-    avatarView.backgroundColor = .secondarySystemBackground
-    avatarView.contentMode = .scaleAspectFill
-    avatarView.layer.cornerRadius = 44
-    avatarView.layer.cornerCurve = .continuous
-    avatarView.clipsToBounds = true
-
-    titleLabel.font = .systemFont(ofSize: 22, weight: .heavy)
+    titleLabel.font = BCTheme.Typography.title
+    titleLabel.textColor = BCTheme.Colors.textPrimary
     titleLabel.textAlignment = .center
 
-    memberLabel.font = .systemFont(ofSize: 14, weight: .semibold)
-    memberLabel.textColor = .secondaryLabel
+    memberLabel.font = BCTheme.Typography.bodyBold
+    memberLabel.textColor = BCTheme.Colors.textSecondary
     memberLabel.textAlignment = .center
 
     let stack = UIStackView(arrangedSubviews: [avatarView, titleLabel, memberLabel])
@@ -173,34 +180,28 @@ final class GroupInfoViewController: UIViewController {
 
     actions.forEach { icon, title, action in
       let button = UIButton(type: .system)
-      button.tintColor = .label
+      var config = UIButton.Configuration.filled()
+      config.image = UIImage(systemName: icon)
+      config.imagePlacement = .top
+      config.imagePadding = 6
+      config.title = title
+      config.baseBackgroundColor = BCTheme.Colors.surfaceElevated
+      config.baseForegroundColor = BCTheme.Colors.textPrimary
+      config.cornerStyle = .medium
+      config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+        var outgoing = incoming
+        outgoing.font = BCTheme.Typography.captionBold
+        return outgoing
+      }
+      button.configuration = config
       button.addTarget(self, action: action, for: .touchUpInside)
 
-      let iconView = UIImageView(image: UIImage(systemName: icon))
-      iconView.tintColor = .label
-      iconView.contentMode = .scaleAspectFit
-      let label = UILabel()
-      label.text = title
-      label.font = .systemFont(ofSize: 12, weight: .semibold)
-      label.textColor = .secondaryLabel
-      label.textAlignment = .center
-      let vertical = UIStackView(arrangedSubviews: [iconView, label])
-      vertical.axis = .vertical
-      vertical.alignment = .center
-      vertical.spacing = 8
-      vertical.isUserInteractionEnabled = false
-      vertical.translatesAutoresizingMaskIntoConstraints = false
-      button.addSubview(vertical)
-      iconView.heightAnchor.constraint(equalToConstant: 24).isActive = true
-      NSLayoutConstraint.activate([
-        vertical.topAnchor.constraint(equalTo: button.topAnchor),
-        vertical.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-        vertical.trailingAnchor.constraint(equalTo: button.trailingAnchor),
-        vertical.bottomAnchor.constraint(equalTo: button.bottomAnchor),
-      ])
+      // Add subtle shadow
+      BCTheme.Shadow.card(button)
+
       stack.addArrangedSubview(button)
     }
-    stack.heightAnchor.constraint(equalToConstant: 54).isActive = true
+    stack.heightAnchor.constraint(equalToConstant: 68).isActive = true
     return stack
   }
 
@@ -251,29 +252,29 @@ final class GroupInfoViewController: UIViewController {
   ) {
     let row = UIControl()
     row.addTarget(self, action: action, for: .touchUpInside)
-    row.heightAnchor.constraint(equalToConstant: 68).isActive = true
+    row.heightAnchor.constraint(equalToConstant: 60).isActive = true
 
     let iconView = UIImageView(image: UIImage(systemName: icon))
-    iconView.tintColor = destructive ? .systemRed : .label
+    iconView.tintColor = destructive ? BCTheme.Colors.error : BCTheme.Colors.primary
     iconView.contentMode = .scaleAspectFit
 
     let titleLabel = UILabel()
     titleLabel.text = title
-    titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
-    titleLabel.textColor = destructive ? .systemRed : .label
+    titleLabel.font = BCTheme.Typography.subheadlineBold
+    titleLabel.textColor = destructive ? BCTheme.Colors.error : BCTheme.Colors.textPrimary
 
     let subtitleLabel = UILabel()
     subtitleLabel.text = subtitle
-    subtitleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-    subtitleLabel.textColor = .secondaryLabel
+    subtitleLabel.font = BCTheme.Typography.caption
+    subtitleLabel.textColor = BCTheme.Colors.textSecondary
     subtitleLabel.isHidden = subtitle == nil
 
     let textStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
     textStack.axis = .vertical
-    textStack.spacing = 3
+    textStack.spacing = 2
 
     let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
-    chevron.tintColor = .tertiaryLabel
+    chevron.tintColor = BCTheme.Colors.textTertiary
 
     [iconView, textStack, chevron].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
@@ -281,25 +282,40 @@ final class GroupInfoViewController: UIViewController {
     }
 
     NSLayoutConstraint.activate([
-      iconView.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+      iconView.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: BCTheme.Layout.paddingM),
       iconView.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-      iconView.widthAnchor.constraint(equalToConstant: 26),
-      iconView.heightAnchor.constraint(equalToConstant: 26),
-      textStack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 18),
+      iconView.widthAnchor.constraint(equalToConstant: 24),
+      iconView.heightAnchor.constraint(equalToConstant: 24),
+
+      textStack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: BCTheme.Layout.paddingM),
       textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
       textStack.trailingAnchor.constraint(lessThanOrEqualTo: chevron.leadingAnchor, constant: -10),
-      chevron.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+
+      chevron.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -BCTheme.Layout.paddingM),
       chevron.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-      chevron.widthAnchor.constraint(equalToConstant: 14),
+      chevron.widthAnchor.constraint(equalToConstant: 12),
+      chevron.heightAnchor.constraint(equalToConstant: 20)
     ])
     optionsStack.addArrangedSubview(row)
   }
 
   private func addSeparator() {
+    let container = UIView()
+    container.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
+
     let view = UIView()
-    view.backgroundColor = .separator.withAlphaComponent(0.25)
-    view.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
-    optionsStack.addArrangedSubview(view)
+    view.backgroundColor = BCTheme.Colors.separatorLight
+    view.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(view)
+
+    NSLayoutConstraint.activate([
+      view.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 56), // align with text
+      view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      view.topAnchor.constraint(equalTo: container.topAnchor),
+      view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+    ])
+
+    optionsStack.addArrangedSubview(container)
   }
 
   @objc private func didTapEdit() {
@@ -342,12 +358,12 @@ final class GroupInfoViewController: UIViewController {
 
   @objc private func didTapCopyInvite() {
     UIPasteboard.general.string = Constants.inviteLink(code: room.inviteCode)
-    showToast("Đã sao chép link mời")
+    BCToast.show("Đã sao chép link mời", style: .success)
   }
 
   @objc private func didTapInviteQR() {
     guard !room.inviteCode.isEmpty else {
-      showToast("Nhóm này chưa có mã mời")
+      BCToast.show("Nhóm này chưa có mã mời", style: .error)
       return
     }
     let link = Constants.inviteLink(code: room.inviteCode)
@@ -381,14 +397,6 @@ final class GroupInfoViewController: UIViewController {
   }
 
   @objc private func didTapStub() {
-    showToast("Tính năng giao diện đã sẵn sàng")
-  }
-
-  private func showToast(_ message: String) {
-    let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-    present(alert, animated: true)
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-      alert.dismiss(animated: true)
-    }
+    BCToast.show("Tính năng gọi đang được phát triển", style: .success)
   }
 }

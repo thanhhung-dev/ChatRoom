@@ -31,6 +31,7 @@ async def search_users(db: AsyncSession, current_user_id: int, query: str) -> li
 
 
 async def send_request(db: AsyncSession, requester_id: int, username: str) -> FriendRequest:
+    username = username.strip()
     result = await db.execute(select(User).where(User.username == username))
     receiver = result.scalar_one_or_none()
     if receiver is None:
@@ -45,7 +46,7 @@ async def send_request(db: AsyncSession, requester_id: int, username: str) -> Fr
     if existing_friend.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already friends")
 
-    existing_request = await db.execute(
+    existing_request_result = await db.execute(
         select(FriendRequest).where(
             or_(
                 (FriendRequest.requester_id == requester_id)
@@ -55,14 +56,31 @@ async def send_request(db: AsyncSession, requester_id: int, username: str) -> Fr
             )
         )
     )
-    request = existing_request.scalar_one_or_none()
-    if request and request.status == "pending":
-        return request
+    existing_requests = list(existing_request_result.scalars())
+    pending_request = next((item for item in existing_requests if item.status == "pending"), None)
+    if pending_request is not None:
+        return await get_request(db, pending_request.id)
 
-    request = FriendRequest(requester_id=requester_id, receiver_id=receiver.id, status="pending")
-    db.add(request)
+    request = next(
+        (
+            item
+            for item in existing_requests
+            if item.requester_id == requester_id and item.receiver_id == receiver.id
+        ),
+        existing_requests[0] if existing_requests else None,
+    )
+    if request is not None:
+        request.requester_id = requester_id
+        request.receiver_id = receiver.id
+        request.status = "pending"
+    else:
+        request = FriendRequest(requester_id=requester_id, receiver_id=receiver.id, status="pending")
+        db.add(request)
+
+    await db.flush()
+    request_id = request.id
     await db.commit()
-    saved = await get_request(db, request.id)
+    saved = await get_request(db, request_id)
     await manager.send_personal(
         receiver.id,
         json.dumps(
@@ -113,17 +131,23 @@ async def respond_request(
 
     request.status = "accepted" if accept else "rejected"
     if not accept:
+        req_id = request.id
+        req_requester_id = request.requester_id
+        req_receiver_id = request.receiver_id
+        req_receiver_username = request.receiver.username
+        req_receiver_display_name = request.receiver.display_name
+
         await db.commit()
         await manager.send_personal(
-            request.requester_id,
+            req_requester_id,
             json.dumps(
                 {
                     "type": "friend_rejected",
                     "payload": {
-                        "request_id": request.id,
-                        "sender_id": request.receiver_id,
-                        "sender_username": request.receiver.username,
-                        "sender_display_name": request.receiver.display_name,
+                        "request_id": req_id,
+                        "sender_id": req_receiver_id,
+                        "sender_username": req_receiver_username,
+                        "sender_display_name": req_receiver_display_name,
                     },
                 }
             ),
@@ -138,23 +162,33 @@ async def respond_request(
     db.add(RoomMember(room_id=room.id, user_id=request.receiver_id, role="member"))
     friendship = Friendship(user_low_id=low, user_high_id=high, room_id=room.id)
     db.add(friendship)
+
+    await db.flush()
+    friendship_id = friendship.id
+    req_id = request.id
+    req_requester_id = request.requester_id
+    req_receiver_id = request.receiver_id
+    req_receiver_username = request.receiver.username
+    req_receiver_display_name = request.receiver.display_name
+    room_id = room.id
+
     await db.commit()
     await manager.send_personal(
-        request.requester_id,
+        req_requester_id,
         json.dumps(
             {
                 "type": "friend_accepted",
                 "payload": {
-                    "request_id": request.id,
-                    "room_id": room.id,
-                    "sender_id": request.receiver_id,
-                    "sender_username": request.receiver.username,
-                    "sender_display_name": request.receiver.display_name,
+                    "request_id": req_id,
+                    "room_id": room_id,
+                    "sender_id": req_receiver_id,
+                    "sender_username": req_receiver_username,
+                    "sender_display_name": req_receiver_display_name,
                 },
             }
         ),
     )
-    return await get_friendship(db, friendship.id)
+    return await get_friendship(db, friendship_id)
 
 
 async def get_friendship(db: AsyncSession, friendship_id: int) -> Friendship:

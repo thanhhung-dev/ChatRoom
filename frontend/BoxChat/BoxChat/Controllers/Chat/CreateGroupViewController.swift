@@ -9,10 +9,10 @@ final class CreateGroupViewController: UIViewController {
   private let scrollView = UIScrollView()
   private let contentView = UIView()
   private let avatarButton = UIButton(type: .system)
-  private let avatarImageView = UIImageView()
+  private let avatarView = BCAvatar(size: 112)
   private let cameraBadge = UIView()
-  private let nameField = UITextField()
-  private let descriptionField = UITextField()
+  private let nameField = BCTextField(title: "Tên nhóm", placeholder: "Nhóm du lịch Đà Nẵng 🌴")
+  private let descriptionField = BCTextField(title: "Mô tả nhóm (tùy chọn)", placeholder: "Cùng nhau khám phá những vùng đất mới ✈️")
   private let selectedMembersStack = UIStackView()
   private let suggestionsStack = UIStackView()
 
@@ -33,7 +33,7 @@ final class CreateGroupViewController: UIViewController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     setupNavigation()
     setupLayout()
   }
@@ -74,11 +74,6 @@ final class CreateGroupViewController: UIViewController {
     ])
 
     setupAvatar()
-    let nameSection = makeFieldSection(
-      title: "Tên nhóm", field: nameField, placeholder: "Nhóm du lịch Đà Nẵng 🌴")
-    let descriptionSection = makeFieldSection(
-      title: "Mô tả nhóm (tùy chọn)", field: descriptionField,
-      placeholder: "Cùng nhau khám phá những vùng đất mới ✈️")
 
     selectedMembersStack.axis = .vertical
     selectedMembersStack.spacing = 14
@@ -89,7 +84,7 @@ final class CreateGroupViewController: UIViewController {
     let suggestionSection = makeSuggestionsSection()
 
     let mainStack = UIStackView(arrangedSubviews: [
-      avatarButton, nameSection, descriptionSection, memberSection, suggestionSection,
+      avatarButton, nameField, descriptionField, memberSection, suggestionSection,
     ])
     mainStack.axis = .vertical
     mainStack.spacing = 24
@@ -108,17 +103,12 @@ final class CreateGroupViewController: UIViewController {
   private func setupAvatar() {
     avatarButton.addTarget(self, action: #selector(didTapAvatar), for: .touchUpInside)
 
-    avatarImageView.image = UIImage(systemName: "person.3.fill")
-    avatarImageView.tintColor = .systemGray
-    avatarImageView.backgroundColor = .systemGray5
-    avatarImageView.contentMode = .scaleAspectFill
-    avatarImageView.layer.cornerRadius = 56
-    avatarImageView.layer.cornerCurve = .continuous
-    avatarImageView.clipsToBounds = true
-    avatarImageView.translatesAutoresizingMaskIntoConstraints = false
-    avatarButton.addSubview(avatarImageView)
+    avatarView.configure(name: "Nhóm", showOnline: false)
+    avatarView.translatesAutoresizingMaskIntoConstraints = false
+    avatarView.isUserInteractionEnabled = false
+    avatarButton.addSubview(avatarView)
 
-    cameraBadge.backgroundColor = .systemBackground
+    cameraBadge.backgroundColor = BCTheme.Colors.surfaceElevated
     cameraBadge.layer.cornerRadius = 15
     cameraBadge.layer.shadowColor = UIColor.black.cgColor
     cameraBadge.layer.shadowOpacity = 0.12
@@ -134,13 +124,11 @@ final class CreateGroupViewController: UIViewController {
     cameraBadge.addSubview(camera)
 
     NSLayoutConstraint.activate([
-      avatarImageView.centerXAnchor.constraint(equalTo: avatarButton.centerXAnchor),
-      avatarImageView.topAnchor.constraint(equalTo: avatarButton.topAnchor),
-      avatarImageView.widthAnchor.constraint(equalToConstant: 112),
-      avatarImageView.heightAnchor.constraint(equalToConstant: 112),
+      avatarView.centerXAnchor.constraint(equalTo: avatarButton.centerXAnchor),
+      avatarView.topAnchor.constraint(equalTo: avatarButton.topAnchor),
 
-      cameraBadge.centerXAnchor.constraint(equalTo: avatarImageView.centerXAnchor),
-      cameraBadge.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
+      cameraBadge.centerXAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: -16),
+      cameraBadge.centerYAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: -16),
       cameraBadge.widthAnchor.constraint(equalToConstant: 34),
       cameraBadge.heightAnchor.constraint(equalToConstant: 34),
 
@@ -149,24 +137,6 @@ final class CreateGroupViewController: UIViewController {
       camera.widthAnchor.constraint(equalToConstant: 18),
       camera.heightAnchor.constraint(equalToConstant: 18),
     ])
-  }
-
-  private func makeFieldSection(title: String, field: UITextField, placeholder: String) -> UIView {
-    let titleLabel = sectionTitle(title)
-    field.placeholder = placeholder
-    field.font = .systemFont(ofSize: 15, weight: .medium)
-    field.backgroundColor = .secondarySystemBackground
-    field.layer.cornerRadius = 14
-    field.layer.borderWidth = 1
-    field.layer.borderColor = UIColor.separator.withAlphaComponent(0.2).cgColor
-    field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 48))
-    field.leftViewMode = .always
-
-    let stack = UIStackView(arrangedSubviews: [titleLabel, field])
-    stack.axis = .vertical
-    stack.spacing = 8
-    field.heightAnchor.constraint(equalToConstant: 48).isActive = true
-    return stack
   }
 
   private func makeSelectedMembersSection() -> UIView {
@@ -213,8 +183,8 @@ final class CreateGroupViewController: UIViewController {
   private func memberBubble(name: String, initials: String) -> UIView {
     let avatar = avatarLabel(initials: initials, size: 56)
     let close = UIImageView(image: UIImage(systemName: "xmark.circle.fill"))
-    close.tintColor = .systemGray
-    close.backgroundColor = .systemBackground
+    close.tintColor = BCTheme.Colors.textTertiary
+    close.backgroundColor = BCTheme.Colors.background
     close.layer.cornerRadius = 9
     close.translatesAutoresizingMaskIntoConstraints = false
 
@@ -249,11 +219,13 @@ final class CreateGroupViewController: UIViewController {
 
   private func addMemberBubble() -> UIView {
     let button = UIButton(type: .system)
-    button.setImage(UIImage(systemName: "plus"), for: .normal)
-    button.tintColor = .systemBlue
+    var config = UIButton.Configuration.plain()
+    config.image = UIImage(systemName: "plus")
+    config.baseForegroundColor = BCTheme.Colors.primary
+    button.configuration = config
     button.layer.cornerRadius = 28
     button.layer.borderWidth = 1.5
-    button.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.18).cgColor
+    button.layer.borderColor = BCTheme.Colors.primary.withAlphaComponent(0.18).cgColor
     let container = UIView()
     button.translatesAutoresizingMaskIntoConstraints = false
     container.addSubview(button)
@@ -309,8 +281,8 @@ final class CreateGroupViewController: UIViewController {
   private func sectionTitle(_ text: String) -> UILabel {
     let label = UILabel()
     label.text = text
-    label.font = .systemFont(ofSize: 13, weight: .bold)
-    label.textColor = .secondaryLabel
+    label.font = BCTheme.Typography.subheadline
+    label.textColor = BCTheme.Colors.textSecondary
     return label
   }
 
@@ -320,7 +292,7 @@ final class CreateGroupViewController: UIViewController {
     label.font = .systemFont(ofSize: size > 40 ? 18 : 12, weight: .bold)
     label.textColor = .white
     label.textAlignment = .center
-    label.backgroundColor = .systemBlue
+    label.backgroundColor = BCTheme.Colors.avatarColor(for: initials)
     label.layer.cornerRadius = size / 2
     label.clipsToBounds = true
     return label
@@ -394,7 +366,10 @@ extension CreateGroupViewController: UIImagePickerControllerDelegate, UINavigati
     picker.dismiss(animated: true)
     let image = (info[.editedImage] ?? info[.originalImage]) as? UIImage
     selectedAvatar = image
-    avatarImageView.image = image
-    avatarImageView.contentMode = .scaleAspectFill
+    if let data = image?.jpegData(compressionQuality: 0.8) {
+      let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tempAvatar.jpg")
+      try? data.write(to: tempURL)
+      avatarView.configure(name: "Nhóm", imageURL: tempURL)
+    }
   }
 }

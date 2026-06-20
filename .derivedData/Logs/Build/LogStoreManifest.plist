@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>11</integer>
+	<key>logs</key>
+	<dict>
+		<key>606EF04A-3FFC-4C5A-B949-4F052BD38BB0</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>606EF04A-3FFC-4C5A-B949-4F052BD38BB0.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>9</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>BoxChat project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>BoxChat</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project BoxChat with scheme BoxChat and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>803647863.77084398</real>
+			<key>timeStoppedRecording</key>
+			<real>803647867.58671999</real>
+			<key>title</key>
+			<string>Building project BoxChat with scheme BoxChat and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>606EF04A-3FFC-4C5A-B949-4F052BD38BB0</string>
+		</dict>
+		<key>C75F4ADB-F18A-4402-8DFC-E871B10FA6FC</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>C75F4ADB-F18A-4402-8DFC-E871B10FA6FC.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>9</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>BoxChat project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>BoxChat</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project BoxChat with scheme BoxChat and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>803646083.37833405</real>
+			<key>timeStoppedRecording</key>
+			<real>803646087.56682098</real>
+			<key>title</key>
+			<string>Building project BoxChat with scheme BoxChat and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>C75F4ADB-F18A-4402-8DFC-E871B10FA6FC</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

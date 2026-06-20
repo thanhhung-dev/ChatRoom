@@ -4,21 +4,44 @@ final class RoomCell: UITableViewCell {
   static let identifier = "RoomCell"
 
   private let avatarContainer = UIView()
-  private let avatarImageView = UIImageView()
-  private let avatarPrimary = UILabel()
+  private let avatarView = BCAvatar(size: BCTheme.Layout.avatarM)
   private let avatarSecondary = UILabel()
+
   private let nameLabel = UILabel()
   private let previewLabel = UILabel()
   private let timeLabel = UILabel()
   private let unreadBadge = UILabel()
-  private let onlineDot = UIView()
-  private var avatarTask: URLSessionDataTask?
 
   private var badgeWidthConstraint: NSLayoutConstraint!
+
+  private static let isoFormatter: ISO8601DateFormatter = {
+      let formatter = ISO8601DateFormatter()
+      formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+      return formatter
+  }()
+
+  private static let fallbackIsoFormatter: ISO8601DateFormatter = {
+      return ISO8601DateFormatter()
+  }()
+
+  private static let timeFormatter: DateFormatter = {
+      let formatter = DateFormatter()
+      formatter.dateFormat = "HH:mm"
+      return formatter
+  }()
+
+  private static let dayFormatter: DateFormatter = {
+      let formatter = DateFormatter()
+      formatter.dateFormat = "E"
+      return formatter
+  }()
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
     setupViews()
+    registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (cell: RoomCell, _) in
+        cell.updateDynamicLayerColors()
+    }
   }
 
   required init?(coder: NSCoder) {
@@ -27,16 +50,8 @@ final class RoomCell: UITableViewCell {
 
   override func prepareForReuse() {
     super.prepareForReuse()
-    avatarTask?.cancel()
-    avatarTask = nil
-    avatarImageView.image = nil
-    avatarImageView.isHidden = true
+    avatarView.prepareForReuse()
     unreadBadge.isHidden = true
-  }
-
-  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-    super.traitCollectionDidChange(previousTraitCollection)
-    updateDynamicLayerColors()
   }
 
   private func setupViews() {
@@ -44,99 +59,69 @@ final class RoomCell: UITableViewCell {
     contentView.backgroundColor = .clear
     selectionStyle = .none
 
-    avatarPrimary.font = .systemFont(ofSize: 17, weight: .bold)
-    avatarPrimary.textColor = .white
-    avatarPrimary.textAlignment = .center
-    avatarPrimary.backgroundColor = .systemBlue
-    avatarPrimary.layer.cornerRadius = 25
-    avatarPrimary.clipsToBounds = true
-
-    avatarImageView.contentMode = .scaleAspectFill
-    avatarImageView.layer.cornerRadius = 25
-    avatarImageView.clipsToBounds = true
-    avatarImageView.isHidden = true
-
-    avatarSecondary.font = .systemFont(ofSize: 12, weight: .bold)
+    avatarSecondary.font = BCTheme.Typography.captionBold
     avatarSecondary.textColor = .white
     avatarSecondary.textAlignment = .center
-    avatarSecondary.backgroundColor = .systemTeal
-    avatarSecondary.layer.cornerRadius = 16
+    avatarSecondary.backgroundColor = BCTheme.Colors.accent
+    avatarSecondary.layer.cornerRadius = 10
     avatarSecondary.layer.borderWidth = 2
     updateDynamicLayerColors()
     avatarSecondary.clipsToBounds = true
 
-    nameLabel.font = .systemFont(ofSize: 16, weight: .bold)
-    nameLabel.textColor = .label
+    nameLabel.font = BCTheme.Typography.headline
+    nameLabel.textColor = BCTheme.Colors.textPrimary
 
-    previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
-    previewLabel.textColor = .secondaryLabel
+    previewLabel.font = BCTheme.Typography.body
+    previewLabel.textColor = BCTheme.Colors.textSecondary
     previewLabel.lineBreakMode = .byTruncatingTail
 
-    timeLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-    timeLabel.textColor = .secondaryLabel
+    timeLabel.font = BCTheme.Typography.captionBold
+    timeLabel.textColor = BCTheme.Colors.textTertiary
     timeLabel.textAlignment = .right
 
-    // Badge: nhỏ gọn, tròn khi 1 chữ số, pill khi nhiều hơn
-    unreadBadge.backgroundColor = .systemBlue
-    unreadBadge.textColor = .white
-    unreadBadge.font = .systemFont(ofSize: 11, weight: .bold)
+    unreadBadge.backgroundColor = BCTheme.Colors.primary
+    unreadBadge.textColor = BCTheme.Colors.textOnPrimary
+    unreadBadge.font = BCTheme.Typography.captionBold
     unreadBadge.textAlignment = .center
     unreadBadge.clipsToBounds = true
     unreadBadge.isHidden = true
-
-    onlineDot.backgroundColor = .systemGreen
-    onlineDot.layer.cornerRadius = 5
-    onlineDot.layer.borderWidth = 2
-    updateDynamicLayerColors()
 
     [avatarContainer, nameLabel, previewLabel, timeLabel, unreadBadge].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
       contentView.addSubview($0)
     }
 
-    [avatarPrimary, avatarImageView, avatarSecondary, onlineDot].forEach {
+    [avatarView, avatarSecondary].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
       avatarContainer.addSubview($0)
     }
 
-    // Badge width mặc định = 20 (hình tròn cho 1 chữ số)
     badgeWidthConstraint = unreadBadge.widthAnchor.constraint(equalToConstant: 20)
 
     NSLayoutConstraint.activate([
-      avatarContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      avatarContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingL),
       avatarContainer.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-      avatarContainer.widthAnchor.constraint(equalToConstant: 58),
-      avatarContainer.heightAnchor.constraint(equalToConstant: 58),
+      avatarContainer.widthAnchor.constraint(equalToConstant: BCTheme.Layout.avatarM),
+      avatarContainer.heightAnchor.constraint(equalToConstant: BCTheme.Layout.avatarM),
 
-      avatarPrimary.leadingAnchor.constraint(equalTo: avatarContainer.leadingAnchor),
-      avatarPrimary.centerYAnchor.constraint(equalTo: avatarContainer.centerYAnchor),
-      avatarPrimary.widthAnchor.constraint(equalToConstant: 50),
-      avatarPrimary.heightAnchor.constraint(equalToConstant: 50),
+      avatarView.leadingAnchor.constraint(equalTo: avatarContainer.leadingAnchor),
+      avatarView.topAnchor.constraint(equalTo: avatarContainer.topAnchor),
+      avatarView.widthAnchor.constraint(equalToConstant: BCTheme.Layout.avatarM),
+      avatarView.heightAnchor.constraint(equalToConstant: BCTheme.Layout.avatarM),
 
-      avatarImageView.leadingAnchor.constraint(equalTo: avatarPrimary.leadingAnchor),
-      avatarImageView.topAnchor.constraint(equalTo: avatarPrimary.topAnchor),
-      avatarImageView.widthAnchor.constraint(equalTo: avatarPrimary.widthAnchor),
-      avatarImageView.heightAnchor.constraint(equalTo: avatarPrimary.heightAnchor),
+      avatarSecondary.trailingAnchor.constraint(equalTo: avatarContainer.trailingAnchor, constant: 4),
+      avatarSecondary.bottomAnchor.constraint(equalTo: avatarContainer.bottomAnchor, constant: 4),
+      avatarSecondary.widthAnchor.constraint(equalToConstant: 20),
+      avatarSecondary.heightAnchor.constraint(equalToConstant: 20),
 
-      avatarSecondary.trailingAnchor.constraint(equalTo: avatarContainer.trailingAnchor),
-      avatarSecondary.bottomAnchor.constraint(equalTo: avatarContainer.bottomAnchor),
-      avatarSecondary.widthAnchor.constraint(equalToConstant: 32),
-      avatarSecondary.heightAnchor.constraint(equalToConstant: 32),
-
-      onlineDot.trailingAnchor.constraint(equalTo: avatarPrimary.trailingAnchor, constant: -2),
-      onlineDot.bottomAnchor.constraint(equalTo: avatarPrimary.bottomAnchor, constant: -2),
-      onlineDot.widthAnchor.constraint(equalToConstant: 10),
-      onlineDot.heightAnchor.constraint(equalToConstant: 10),
-
-      nameLabel.leadingAnchor.constraint(equalTo: avatarContainer.trailingAnchor, constant: 12),
+      nameLabel.leadingAnchor.constraint(equalTo: avatarContainer.trailingAnchor, constant: BCTheme.Layout.paddingM),
       nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
       nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: timeLabel.leadingAnchor, constant: -8),
 
-      timeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+      timeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingL),
       timeLabel.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: 1),
       timeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
 
-      // Badge góc phải, ngay dưới timeLabel, cố định height=20
       unreadBadge.trailingAnchor.constraint(equalTo: timeLabel.trailingAnchor),
       unreadBadge.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 6),
       unreadBadge.heightAnchor.constraint(equalToConstant: 20),
@@ -150,41 +135,27 @@ final class RoomCell: UITableViewCell {
   }
 
   private func updateDynamicLayerColors() {
-    avatarSecondary.layer.borderColor = UIColor.systemBackground.cgColor
-    onlineDot.layer.borderColor = UIColor.systemBackground.cgColor
+    avatarSecondary.layer.borderColor = BCTheme.Colors.surface.cgColor
   }
 
   func configure(with room: Room) {
     nameLabel.text = room.displayName
-    previewLabel.text = preview(for: room)
-    timeLabel.text = timeText(for: room)
 
-    if let url = Constants.mediaURL(from: room.displayAvatarURL) {
-      avatarImageView.isHidden = false
-      avatarPrimary.text = ""
-      avatarTask = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-        guard let self, let data, let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { self.avatarImageView.image = image }
-      }
-      avatarTask?.resume()
-    } else {
-      avatarImageView.isHidden = true
-      avatarImageView.image = nil
-      avatarPrimary.backgroundColor = .systemBlue
-      avatarPrimary.text = initials(room.displayName)
-    }
+    // Configure Avatar using BCAvatar
+    let url = Constants.mediaURL(from: room.displayAvatarURL)
+    avatarView.configure(name: room.displayName, imageURL: url, showOnline: room.isDirect)
+    avatarView.updateTraitColors()
 
+    // Secondary badge for group member count
     avatarSecondary.text = room.isDirect ? "" : (room.memberCount > 2 ? "\(min(room.memberCount, 9))" : "")
     avatarSecondary.isHidden = room.isDirect || room.memberCount <= 2
-    onlineDot.isHidden = !room.isDirect
 
+    // Configure Unread Badge
     if room.unreadCount > 0 {
       let count = room.unreadCount
-      // Tối đa hiển thị "9+", sau đó không tăng nữa
       let text = count > 9 ? "9+" : "\(count)"
       unreadBadge.text = text
 
-      // Width: 1 chữ số = 20 (tròn), "9+" = 28 (pill)
       let badgeWidth: CGFloat = text.count == 1 ? 20 : 28
       badgeWidthConstraint.constant = badgeWidth
       unreadBadge.layer.cornerRadius = 10
@@ -192,11 +163,33 @@ final class RoomCell: UITableViewCell {
     } else {
       unreadBadge.isHidden = true
     }
+
+    // Set initial values from memory
+    previewLabel.text = preview(for: room, message: room.lastMessage)
+    timeLabel.text = timeText(for: room, rawTime: room.lastMessage?.createdAt ?? room.createdAt)
+
+    // Async fetch from local store to prevent main thread blocking during scroll
+    let roomId = room.id
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        guard let localMessage = ChatLocalStore.shared.loadMessages(roomId: roomId).last else { return }
+
+        // If local is newer or we didn't have one
+        let currentIso = room.lastMessage?.createdAt ?? ""
+        let localIso = localMessage.createdAt
+
+        if localIso > currentIso {
+            let pText = self?.preview(for: room, message: localMessage)
+            let tText = self?.timeText(for: room, rawTime: localIso)
+
+            DispatchQueue.main.async {
+                self?.previewLabel.text = pText
+                self?.timeLabel.text = tText
+            }
+        }
+    }
   }
 
-  private func preview(for room: Room) -> String {
-    let local = ChatLocalStore.shared.loadMessages(roomId: room.id).last
-    let message = local ?? room.lastMessage
+  private func preview(for room: Room, message: Message?) -> String {
     guard let message else {
       return room.description ?? "Hãy bắt đầu cuộc trò chuyện..."
     }
@@ -207,26 +200,20 @@ final class RoomCell: UITableViewCell {
     return "\(prefix)\(message.content)"
   }
 
-  private func timeText(for room: Room) -> String {
-    let local = ChatLocalStore.shared.loadMessages(roomId: room.id).last
-    let raw = local?.createdAt ?? room.lastMessage?.createdAt ?? room.createdAt
-    let iso = ISO8601DateFormatter()
-    guard let date = iso.date(from: raw) else { return "" }
+  private func timeText(for room: Room, rawTime: String) -> String {
+    guard let date = Self.isoFormatter.date(from: rawTime) ?? Self.fallbackIsoFormatter.date(from: rawTime) else { return "" }
     let calendar = Calendar.current
     if calendar.isDateInToday(date) {
-      let formatter = DateFormatter()
-      formatter.dateFormat = "HH:mm"
-      return formatter.string(from: date)
+      return Self.timeFormatter.string(from: date)
     }
     if calendar.isDateInYesterday(date) { return "Hôm qua" }
-    let formatter = DateFormatter()
-    formatter.dateFormat = "E"
-    return formatter.string(from: date)
+    return Self.dayFormatter.string(from: date)
   }
 
-  private func initials(_ value: String) -> String {
-    let parts = value.split(separator: " ")
-    let text = parts.prefix(2).compactMap { $0.first }.map(String.init).joined()
-    return text.isEmpty ? "B" : text.uppercased()
+  override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+    super.setHighlighted(highlighted, animated: animated)
+    UIView.animate(withDuration: 0.15) {
+        self.contentView.backgroundColor = highlighted ? BCTheme.Colors.surfaceElevated : .clear
+    }
   }
 }

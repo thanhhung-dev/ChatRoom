@@ -2,15 +2,18 @@ import AVKit
 import QuickLook
 import UIKit
 
+// MARK: - EditGroupInfoViewController
 final class EditGroupInfoViewController: UIViewController {
   var onSaved: ((Room) -> Void)?
 
   private var room: Room
   private var selectedAvatar: UIImage?
+
   private let avatarButton = UIButton(type: .system)
-  private let avatarImageView = UIImageView()
-  private let nameField = UITextField()
-  private let descriptionField = UITextField()
+  private let avatarView = BCAvatar(size: 112)
+
+  private let nameField = BCTextField(title: "Tên nhóm", placeholder: "Nhập tên nhóm", isSecure: false)
+  private let descriptionField = BCTextField(title: "Mô tả nhóm", placeholder: "Nhập mô tả", isSecure: false)
 
   init(room: Room) {
     self.room = room
@@ -23,7 +26,7 @@ final class EditGroupInfoViewController: UIViewController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     title = "Sửa thông tin"
     installGroupBackButton()
     navigationItem.rightBarButtonItem = UIBarButtonItem(
@@ -37,37 +40,35 @@ final class EditGroupInfoViewController: UIViewController {
   }
 
   private func setupLayout() {
-    avatarImageView.image = UIImage(systemName: "person.3.fill")
-    if let url = Constants.mediaURL(from: room.avatarUrl) {
-      URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-        guard let self, let data, let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { self.avatarImageView.image = image }
-      }.resume()
-    }
-    avatarImageView.tintColor = .systemBlue
-    avatarImageView.backgroundColor = .secondarySystemBackground
-    avatarImageView.contentMode = .scaleAspectFill
-    avatarImageView.layer.cornerRadius = 56
-    avatarImageView.clipsToBounds = true
-    avatarImageView.translatesAutoresizingMaskIntoConstraints = false
-    avatarButton.addSubview(avatarImageView)
+    avatarView.configure(name: room.displayName, url: room.avatarUrl)
+    avatarView.isUserInteractionEnabled = false
+    avatarView.translatesAutoresizingMaskIntoConstraints = false
+
+    avatarButton.addSubview(avatarView)
     avatarButton.addTarget(self, action: #selector(didTapAvatar), for: .touchUpInside)
 
+    let cameraContainer = UIView()
+    cameraContainer.backgroundColor = BCTheme.Colors.surface
+    cameraContainer.layer.cornerRadius = 16
+    cameraContainer.layer.borderWidth = 2
+    cameraContainer.layer.borderColor = BCTheme.Colors.background.cgColor
+    cameraContainer.translatesAutoresizingMaskIntoConstraints = false
+
     let camera = UIImageView(image: UIImage(systemName: "camera.fill"))
-    camera.tintColor = .systemBlue
-    camera.backgroundColor = .systemBackground
-    camera.layer.cornerRadius = 16
+    camera.tintColor = BCTheme.Colors.primary
     camera.contentMode = .center
     camera.translatesAutoresizingMaskIntoConstraints = false
-    avatarButton.addSubview(camera)
 
-    configure(field: nameField, placeholder: "Tên nhóm", text: room.name)
-    configure(field: descriptionField, placeholder: "Mô tả nhóm", text: room.description)
+    cameraContainer.addSubview(camera)
+    avatarButton.addSubview(cameraContainer)
+
+    nameField.textField.text = room.name
+    descriptionField.textField.text = room.description
 
     let stack = UIStackView(arrangedSubviews: [
       avatarButton,
-      fieldSection("Tên nhóm", nameField),
-      fieldSection("Mô tả nhóm", descriptionField),
+      nameField,
+      descriptionField,
     ])
     stack.axis = .vertical
     stack.spacing = 24
@@ -76,41 +77,23 @@ final class EditGroupInfoViewController: UIViewController {
 
     NSLayoutConstraint.activate([
       stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 28),
-      stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-      stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+      stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+      stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
 
       avatarButton.heightAnchor.constraint(equalToConstant: 120),
-      avatarImageView.centerXAnchor.constraint(equalTo: avatarButton.centerXAnchor),
-      avatarImageView.topAnchor.constraint(equalTo: avatarButton.topAnchor),
-      avatarImageView.widthAnchor.constraint(equalToConstant: 112),
-      avatarImageView.heightAnchor.constraint(equalToConstant: 112),
-      camera.centerXAnchor.constraint(equalTo: avatarImageView.centerXAnchor),
-      camera.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
-      camera.widthAnchor.constraint(equalToConstant: 34),
-      camera.heightAnchor.constraint(equalToConstant: 34),
+      avatarView.centerXAnchor.constraint(equalTo: avatarButton.centerXAnchor),
+      avatarView.topAnchor.constraint(equalTo: avatarButton.topAnchor),
+      avatarView.widthAnchor.constraint(equalToConstant: 112),
+      avatarView.heightAnchor.constraint(equalToConstant: 112),
+
+      cameraContainer.trailingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 4),
+      cameraContainer.bottomAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: -4),
+      cameraContainer.widthAnchor.constraint(equalToConstant: 32),
+      cameraContainer.heightAnchor.constraint(equalToConstant: 32),
+
+      camera.centerXAnchor.constraint(equalTo: cameraContainer.centerXAnchor),
+      camera.centerYAnchor.constraint(equalTo: cameraContainer.centerYAnchor)
     ])
-  }
-
-  private func configure(field: UITextField, placeholder: String, text: String?) {
-    field.placeholder = placeholder
-    field.text = text
-    field.font = .systemFont(ofSize: 15, weight: .medium)
-    field.backgroundColor = .secondarySystemBackground
-    field.layer.cornerRadius = 14
-    field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 48))
-    field.leftViewMode = .always
-    field.heightAnchor.constraint(equalToConstant: 48).isActive = true
-  }
-
-  private func fieldSection(_ title: String, _ field: UITextField) -> UIView {
-    let label = UILabel()
-    label.text = title
-    label.font = .systemFont(ofSize: 13, weight: .bold)
-    label.textColor = .secondaryLabel
-    let stack = UIStackView(arrangedSubviews: [label, field])
-    stack.axis = .vertical
-    stack.spacing = 8
-    return stack
   }
 
   @objc private func didTapAvatar() {
@@ -122,12 +105,11 @@ final class EditGroupInfoViewController: UIViewController {
   }
 
   @objc private func didTapSave() {
-    let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let description = descriptionField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let name = nameField.textField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let description = descriptionField.textField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
     navigationItem.rightBarButtonItem?.isEnabled = false
 
-    NetworkManager.shared.updateRoom(roomId: room.id, name: name, description: description) {
-      [weak self] result in
+    NetworkManager.shared.updateRoom(roomId: room.id, name: name, description: description) { [weak self] result in
       DispatchQueue.main.async {
         guard let self else { return }
         self.navigationItem.rightBarButtonItem?.isEnabled = true
@@ -136,8 +118,7 @@ final class EditGroupInfoViewController: UIViewController {
           if let selectedAvatar = self.selectedAvatar,
             let data = selectedAvatar.jpegData(compressionQuality: 0.78)
           {
-            NetworkManager.shared.uploadRoomAvatar(roomId: updated.id, imageData: data) {
-              [weak self] avatarResult in
+            NetworkManager.shared.uploadRoomAvatar(roomId: updated.id, imageData: data) { [weak self] avatarResult in
               DispatchQueue.main.async {
                 guard let self else { return }
                 if case .success(let avatarRoom) = avatarResult {
@@ -153,19 +134,14 @@ final class EditGroupInfoViewController: UIViewController {
           self.onSaved?(updated)
           self.navigationController?.popViewController(animated: true)
         case .failure(let error):
-          let alert = UIAlertController(
-            title: "Không thể lưu", message: error.localizedDescription, preferredStyle: .alert)
-          alert.addAction(UIAlertAction(title: "OK", style: .default))
-          self.present(alert, animated: true)
+          BCToast.show(error.localizedDescription, style: .error)
         }
       }
     }
   }
 }
 
-extension EditGroupInfoViewController: UIImagePickerControllerDelegate,
-  UINavigationControllerDelegate
-{
+extension EditGroupInfoViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
   func imagePickerController(
     _ picker: UIImagePickerController,
     didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
@@ -173,10 +149,22 @@ extension EditGroupInfoViewController: UIImagePickerControllerDelegate,
     picker.dismiss(animated: true)
     let image = (info[.editedImage] ?? info[.originalImage]) as? UIImage
     selectedAvatar = image
-    avatarImageView.image = image
+    // For local preview, we can just use an internal UIImageView on top or let BCAvatar be bypassed
+    // For simplicity, we just set the avatarView to bypass url loading
+    if let img = image {
+        // HACK: just overlay an imageview since BCAvatar is URL based
+        let overlay = UIImageView(image: img)
+        overlay.contentMode = .scaleAspectFill
+        overlay.layer.cornerRadius = 56
+        overlay.clipsToBounds = true
+        overlay.frame = avatarView.bounds
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        avatarView.addSubview(overlay)
+    }
   }
 }
 
+// MARK: - MessageSearchViewController
 final class MessageSearchViewController: UIViewController {
   private let room: Room
   private let sourceMessages: [Message]
@@ -197,21 +185,30 @@ final class MessageSearchViewController: UIViewController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     title = "Tìm kiếm"
     installGroupBackButton()
-    searchBar.placeholder = "Tìm trong \(room.name)"
+
+    searchBar.placeholder = "Tìm trong \(room.displayName)"
     searchBar.delegate = self
+    searchBar.searchBarStyle = .minimal
+    installTapToDismissKeyboard()
+
     tableView.dataSource = self
-    tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+    tableView.keyboardDismissMode = .interactive
+    tableView.register(MessageSearchCell.self, forCellReuseIdentifier: MessageSearchCell.identifier)
+    tableView.backgroundColor = .clear
+    tableView.separatorColor = BCTheme.Colors.separatorLight
+
     [searchBar, tableView].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
       view.addSubview($0)
     }
+
     NSLayoutConstraint.activate([
       searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-      searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-      searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+      searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
       tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
       tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -234,21 +231,85 @@ extension MessageSearchViewController: UISearchBarDelegate, UITableViewDataSourc
     tableView.reloadData()
   }
 
+  func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+    searchBar.resignFirstResponder()
+  }
+
   func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
     filtered.count
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    let cell = tableView.dequeueReusableCell(withIdentifier: MessageSearchCell.identifier, for: indexPath) as! MessageSearchCell
     let message = filtered[indexPath.row]
-    var config = cell.defaultContentConfiguration()
-    config.text = message.content.isEmpty ? (message.fileName ?? "Tin nhắn") : message.content
-    config.secondaryText = message.createdAt
-    cell.contentConfiguration = config
+    let query = searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    cell.configure(message: message, query: query)
     return cell
   }
 }
 
+private final class MessageSearchCell: UITableViewCell {
+    static let identifier = "MessageSearchCell"
+    private let nameLabel = UILabel()
+    private let contentLabel = UILabel()
+    private let timeLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        backgroundColor = BCTheme.Colors.surface
+
+        nameLabel.font = BCTheme.Typography.captionBold
+        nameLabel.textColor = BCTheme.Colors.textSecondary
+
+        contentLabel.font = BCTheme.Typography.body
+        contentLabel.textColor = BCTheme.Colors.textPrimary
+        contentLabel.numberOfLines = 2
+
+        timeLabel.font = BCTheme.Typography.caption
+        timeLabel.textColor = BCTheme.Colors.textTertiary
+
+        let headerStack = UIStackView(arrangedSubviews: [nameLabel, UIView(), timeLabel])
+        headerStack.axis = .horizontal
+
+        let stack = UIStackView(arrangedSubviews: [headerStack, contentLabel])
+        stack.axis = .vertical
+        stack.spacing = 4
+
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingL),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: BCTheme.Layout.paddingM),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -BCTheme.Layout.paddingM)
+        ])
+    }
+
+    func configure(message: Message, query: String) {
+        nameLabel.text = message.displayName ?? message.username ?? "Ẩn danh"
+        timeLabel.text = message.createdAt
+
+        let fullText = message.content.isEmpty ? (message.fileName ?? "Tin nhắn") : message.content
+
+        if !query.isEmpty, let range = fullText.lowercased().range(of: query.lowercased()) {
+            let nsRange = NSRange(range, in: fullText)
+            let attributed = NSMutableAttributedString(string: fullText)
+            attributed.addAttribute(.foregroundColor, value: BCTheme.Colors.primary, range: nsRange)
+            attributed.addAttribute(.font, value: BCTheme.Typography.bodyBold, range: nsRange)
+            contentLabel.attributedText = attributed
+        } else {
+            contentLabel.text = fullText
+        }
+    }
+}
+
+// MARK: - MessageCollectionViewController
 final class MessageCollectionViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
   private let screenTitle: String
   private let messages: [Message]
@@ -267,12 +328,13 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     title = screenTitle
     installGroupBackButton()
     tableView.dataSource = self
     tableView.delegate = self
-    tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+    tableView.backgroundColor = .clear
+    tableView.register(MessageCollectionCell.self, forCellReuseIdentifier: MessageCollectionCell.identifier)
     tableView.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(tableView)
     NSLayoutConstraint.activate([
@@ -293,13 +355,9 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    let cell = tableView.dequeueReusableCell(withIdentifier: MessageCollectionCell.identifier, for: indexPath) as! MessageCollectionCell
     let message = messages[indexPath.row]
-    var config = cell.defaultContentConfiguration()
-    config.image = UIImage(systemName: iconName(for: message))
-    config.text = message.fileName ?? message.content
-    config.secondaryText = message.createdAt
-    cell.contentConfiguration = config
+    cell.configure(message: message, iconName: iconName(for: message))
     return cell
   }
 
@@ -336,18 +394,18 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
   }
 
   private func saveImage(from url: URL) {
-    URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+    URLSession.shared.dataTask(with: url) { data, _, _ in
       guard let data, let image = UIImage(data: data) else { return }
       UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-      DispatchQueue.main.async { self?.showNotice("Đã lưu ảnh") }
+      DispatchQueue.main.async { BCToast.show("Đã lưu ảnh", style: .success) }
     }.resume()
   }
 
   private func saveVideo(from url: URL) {
-    URLSession.shared.downloadTask(with: url) { [weak self] tempURL, _, _ in
+    URLSession.shared.downloadTask(with: url) { tempURL, _, _ in
       guard let tempURL else { return }
       UISaveVideoAtPathToSavedPhotosAlbum(tempURL.path, nil, nil, nil)
-      DispatchQueue.main.async { self?.showNotice("Đã lưu video") }
+      DispatchQueue.main.async { BCToast.show("Đã lưu video", style: .success) }
     }.resume()
   }
 
@@ -360,6 +418,7 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
       self?.saveVideo(from: url)
     })
     sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+    guard presentedViewController == nil else { return }
     present(sheet, animated: true)
   }
 
@@ -367,6 +426,7 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
     let player = AVPlayer(url: url)
     let controller = AVPlayerViewController()
     controller.player = player
+    guard presentedViewController == nil else { return }
     present(controller, animated: true) {
       player.play()
     }
@@ -381,11 +441,11 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
     URLSession.shared.downloadTask(with: url) { [weak self] tempURL, _, error in
       guard let self else { return }
       if let error {
-        DispatchQueue.main.async { self.showNotice(error.localizedDescription) }
+        DispatchQueue.main.async { BCToast.show(error.localizedDescription, style: .error) }
         return
       }
       guard let tempURL else {
-        DispatchQueue.main.async { self.showNotice("Không tải được file.") }
+        DispatchQueue.main.async { BCToast.show("Không tải được file.", style: .error) }
         return
       }
 
@@ -396,7 +456,7 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
         try FileManager.default.copyItem(at: tempURL, to: destination)
         DispatchQueue.main.async { self.presentQuickLook(destination) }
       } catch {
-        DispatchQueue.main.async { self.showNotice("Không mở được file.") }
+        DispatchQueue.main.async { BCToast.show("Không mở được file.", style: .error) }
       }
     }.resume()
   }
@@ -405,6 +465,7 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
     previewFileURL = url
     let controller = QLPreviewController()
     controller.dataSource = self
+    guard presentedViewController == nil else { return }
     present(controller, animated: true)
   }
 
@@ -412,14 +473,6 @@ final class MessageCollectionViewController: UIViewController, UITableViewDataSo
     let rawName = fileName?.isEmpty == false ? fileName! : fallbackURL.lastPathComponent
     let cleaned = rawName.replacingOccurrences(of: "/", with: "_")
     return cleaned.isEmpty ? "attachment" : cleaned
-  }
-
-  private func showNotice(_ message: String) {
-    let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-    present(alert, animated: true)
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-      alert.dismiss(animated: true)
-    }
   }
 
   private func firstURL(in text: String) -> URL? {
@@ -436,10 +489,86 @@ extension MessageCollectionViewController: QLPreviewControllerDataSource {
   }
 
   func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
-    previewFileURL! as NSURL
+    (previewFileURL as NSURL?) ?? NSURL(fileURLWithPath: "")
   }
 }
 
+private final class MessageCollectionCell: UITableViewCell {
+    static let identifier = "MessageCollectionCell"
+    private let iconView = UIImageView()
+    private let titleLabel = UILabel()
+    private let timeLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        backgroundColor = BCTheme.Colors.surface
+        accessoryType = .disclosureIndicator
+
+        iconView.contentMode = .scaleAspectFill
+        iconView.clipsToBounds = true
+        iconView.layer.cornerRadius = 8
+        iconView.tintColor = BCTheme.Colors.primary
+
+        titleLabel.font = BCTheme.Typography.bodyBold
+        titleLabel.textColor = BCTheme.Colors.textPrimary
+
+        timeLabel.font = BCTheme.Typography.caption
+        timeLabel.textColor = BCTheme.Colors.textSecondary
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, timeLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+
+        [iconView, textStack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 44),
+            iconView.heightAnchor.constraint(equalToConstant: 44),
+
+            textStack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            textStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM),
+            textStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+        ])
+    }
+
+    func configure(message: Message, iconName: String) {
+        titleLabel.text = message.fileName ?? message.content
+        timeLabel.text = message.createdAt
+
+        // Thumbnail loading if it's an image
+        if message.messageType == "file",
+           let urlString = message.fileUrl,
+           let url = Constants.mediaURL(from: urlString) {
+
+            let name = (message.fileName ?? urlString).lowercased()
+            if ["jpg", "jpeg", "png", "gif", "heic", "webp"].contains(where: { name.hasSuffix(".\($0)") }) {
+                ImageCache.shared.load(from: url) { [weak self] image in
+                    if let image = image {
+                        self?.iconView.image = image
+                    } else {
+                        self?.iconView.image = UIImage(systemName: "photo.fill")
+                    }
+                }
+                return
+            }
+        }
+
+        // Fallback icon
+        iconView.image = UIImage(systemName: iconName)
+    }
+}
+
+// MARK: - GroupMembersViewController
 final class GroupMembersViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
   private var room: Room
   private let tableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -455,14 +584,17 @@ final class GroupMembersViewController: UIViewController, UITableViewDataSource,
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .systemBackground
+    view.backgroundColor = BCTheme.Colors.background
     title = "Thành viên"
     installGroupBackButton()
+
     tableView.dataSource = self
     tableView.delegate = self
-    tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+    tableView.backgroundColor = .clear
+    tableView.register(GroupMemberCell.self, forCellReuseIdentifier: GroupMemberCell.identifier)
     tableView.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(tableView)
+
     NSLayoutConstraint.activate([
       tableView.topAnchor.constraint(equalTo: view.topAnchor),
       tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -481,14 +613,11 @@ final class GroupMembersViewController: UIViewController, UITableViewDataSource,
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-    let member = room.members?[indexPath.row]
-    var config = cell.defaultContentConfiguration()
-    config.image = UIImage(systemName: "person.crop.circle.fill")
-    config.text = member?.displayName ?? member?.username ?? "Thành viên"
-    config.secondaryText = member?.role == "admin" ? "Quản trị viên" : "Thành viên"
-    cell.contentConfiguration = config
-    cell.accessoryType = member?.userId == TokenManager.shared.currentUser?.id ? .none : .disclosureIndicator
+    let cell = tableView.dequeueReusableCell(withIdentifier: GroupMemberCell.identifier, for: indexPath) as! GroupMemberCell
+    if let member = room.members?[indexPath.row] {
+        cell.configure(member: member)
+        cell.accessoryType = member.userId == TokenManager.shared.currentUser?.id ? .none : .disclosureIndicator
+    }
     return cell
   }
 
@@ -497,7 +626,7 @@ final class GroupMembersViewController: UIViewController, UITableViewDataSource,
     guard let member = room.members?[indexPath.row] else { return }
 
     if member.userId == TokenManager.shared.currentUser?.id {
-      showMemberNotice("Đây là tài khoản của bạn.")
+      BCToast.show("Đây là tài khoản của bạn.", style: .success)
       return
     }
 
@@ -550,7 +679,7 @@ final class GroupMembersViewController: UIViewController, UITableViewDataSource,
   private func confirmRemoveMember(_ member: RoomMember) {
     let alert = UIAlertController(
       title: "Xóa khỏi nhóm?",
-      message: "\(member.displayName) sẽ không còn trong nhóm này.",
+      message: "\(member.displayName ?? member.username) sẽ không còn trong nhóm này.",
       preferredStyle: .alert)
     alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
     alert.addAction(UIAlertAction(title: "Xóa", style: .destructive) { [weak self] _ in
@@ -568,32 +697,81 @@ final class GroupMembersViewController: UIViewController, UITableViewDataSource,
           self.room.members?.removeAll { $0.userId == member.userId }
           self.tableView.reloadData()
         case .failure(let error):
-          self.showMemberNotice(error.localizedDescription)
+          BCToast.show(error.localizedDescription, style: .error)
         }
       }
     }
   }
 
   private func sendFriendRequest(to member: RoomMember) {
-    NetworkManager.shared.sendFriendRequest(username: member.username) { [weak self] result in
+    NetworkManager.shared.sendFriendRequest(username: member.username) { result in
       DispatchQueue.main.async {
         switch result {
         case .success:
-          self?.showMemberNotice("Đã gửi lời mời kết bạn tới \(member.displayName).")
+          BCToast.show("Đã gửi lời mời kết bạn", style: .success)
         case .failure(let error):
-          self?.showMemberNotice(error.localizedDescription)
+          BCToast.show(error.localizedDescription, style: .error)
         }
       }
     }
   }
-
-  private func showMemberNotice(_ message: String) {
-    let alert = UIAlertController(title: "Thông báo", message: message, preferredStyle: .alert)
-    alert.addAction(UIAlertAction(title: "OK", style: .default))
-    present(alert, animated: true)
-  }
 }
 
+private final class GroupMemberCell: UITableViewCell {
+    static let identifier = "GroupMemberCell"
+    private let avatar = BCAvatar(size: BCTheme.Layout.avatarM)
+    private let nameLabel = UILabel()
+    private let roleLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        backgroundColor = BCTheme.Colors.surface
+
+        nameLabel.font = BCTheme.Typography.subheadlineBold
+        nameLabel.textColor = BCTheme.Colors.textPrimary
+
+        roleLabel.font = BCTheme.Typography.caption
+        roleLabel.textColor = BCTheme.Colors.textSecondary
+
+        let stack = UIStackView(arrangedSubviews: [nameLabel, roleLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+
+        [avatar, stack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            avatar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            avatar.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            stack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM),
+            stack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+        ])
+    }
+
+    func configure(member: RoomMember) {
+        avatar.configure(name: member.displayName ?? member.username, url: member.avatarUrl)
+        nameLabel.text = member.displayName ?? member.username
+
+        if member.role == "admin" {
+            roleLabel.text = "Quản trị viên"
+            roleLabel.textColor = BCTheme.Colors.primary
+        } else {
+            roleLabel.text = "Thành viên"
+            roleLabel.textColor = BCTheme.Colors.textSecondary
+        }
+    }
+}
+
+// MARK: - Base Helpers
 extension UIViewController {
   fileprivate func installGroupBackButton() {
     navigationItem.leftBarButtonItem = UIBarButtonItem(

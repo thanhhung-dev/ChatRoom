@@ -1,24 +1,6 @@
 import UIKit
 
-// MARK: - Color Theme Extension
-extension UIColor {
-  static let appBlue = UIColor(red: 0.19, green: 0.47, blue: 1.0, alpha: 1)
-  static let textDark = UIColor.label
-  static let textGray = UIColor.secondaryLabel
-  static let borderGray = UIColor.separator
-  static let welcomeBackgroundStart = UIColor { trait in
-    if trait.userInterfaceStyle == .dark {
-      return UIColor(red: 0.05, green: 0.06, blue: 0.08, alpha: 1)
-    }
-    return UIColor(red: 0.94, green: 0.96, blue: 1.00, alpha: 1)
-  }
-  static let welcomeBackgroundEnd = UIColor { trait in
-    if trait.userInterfaceStyle == .dark {
-      return UIColor(red: 0.09, green: 0.11, blue: 0.15, alpha: 1)
-    }
-    return UIColor(red: 0.97, green: 0.98, blue: 1.00, alpha: 1)
-  }
-}
+
 
 class WelcomeViewController: UIViewController {
 
@@ -39,16 +21,16 @@ class WelcomeViewController: UIViewController {
     let attributedString = NSMutableAttributedString(
       string: "Box",
       attributes: [
-        .foregroundColor: UIColor.textDark,
-        .font: UIFont.systemFont(ofSize: 34, weight: .heavy),
+        .foregroundColor: BCTheme.Colors.textPrimary,
+        .font: BCTheme.Typography.displayMedium,
       ]
     )
     attributedString.append(
       NSAttributedString(
         string: "Chat",
         attributes: [
-          .foregroundColor: UIColor.appBlue,
-          .font: UIFont.systemFont(ofSize: 34, weight: .heavy),
+          .foregroundColor: BCTheme.Colors.primary,
+          .font: BCTheme.Typography.displayMedium,
         ]
       ))
     label.attributedText = attributedString
@@ -58,38 +40,20 @@ class WelcomeViewController: UIViewController {
   private let taglineLabel: UILabel = {
     let l = UILabel()
     l.text = "Chat freely, connect easily."
-    l.font = .systemFont(ofSize: 15, weight: .medium)
-    l.textColor = .textGray
+    l.font = BCTheme.Typography.bodyBold
+    l.textColor = BCTheme.Colors.textSecondary
     l.textAlignment = .center
     return l
   }()
 
-  private lazy var loginButton: UIButton = {
-    let b = UIButton(type: .system)
-    b.setTitle("Đăng nhập", for: .normal)
-    b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-    b.setTitleColor(.white, for: .normal)
-    b.backgroundColor = .appBlue
-    b.layer.cornerRadius = 16
-    b.layer.cornerCurve = .continuous
-    b.layer.shadowColor = UIColor.appBlue.cgColor
-    b.layer.shadowRadius = 12
-    b.layer.shadowOpacity = 0.35
-    b.layer.shadowOffset = CGSize(width: 0, height: 4)
+  private lazy var loginButton: BCButton = {
+    let b = BCButton(title: "Đăng nhập", style: .primary)
     b.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
     return b
   }()
 
-  private lazy var registerButton: UIButton = {
-    let b = UIButton(type: .system)
-    b.setTitle("Đăng ký", for: .normal)
-    b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-    b.setTitleColor(.textDark, for: .normal)
-    b.backgroundColor = .systemBackground
-    b.layer.cornerRadius = 16
-    b.layer.cornerCurve = .continuous
-    b.layer.borderWidth = 1
-    b.layer.borderColor = UIColor.borderGray.cgColor
+  private lazy var registerButton: BCButton = {
+    let b = BCButton(title: "Đăng ký", style: .secondary)
     b.addTarget(self, action: #selector(registerTapped), for: .touchUpInside)
     return b
   }()
@@ -105,8 +69,8 @@ class WelcomeViewController: UIViewController {
   private let dividerLabel: UILabel = {
     let l = UILabel()
     l.text = "Hoặc tiếp tục với"
-    l.font = .systemFont(ofSize: 13, weight: .medium)
-    l.textColor = .textGray
+    l.font = BCTheme.Typography.subheadline
+    l.textColor = BCTheme.Colors.textSecondary
     l.textAlignment = .center
     return l
   }()
@@ -117,11 +81,9 @@ class WelcomeViewController: UIViewController {
     sv.spacing = 24
     sv.alignment = .center
     sv.distribution = .equalSpacing
-    let googleBtn = makeSocialButton(
-      imageName: "G_logo", sfSymbol: nil,
-      tint: UIColor(red: 0.85, green: 0.26, blue: 0.21, alpha: 1))
-    let appleBtn = makeSocialButton(imageName: nil, sfSymbol: "apple.logo", tint: .label)
-    let emailBtn = makeSocialButton(imageName: nil, sfSymbol: "envelope.fill", tint: .appBlue)
+    let googleBtn = BCSocialButton(icon: "G", isSystemIcon: false)
+    let appleBtn = BCSocialButton(icon: "apple.logo")
+    let emailBtn = BCSocialButton(icon: "envelope.fill")
     [googleBtn, appleBtn, emailBtn].forEach { sv.addArrangedSubview($0) }
     return sv
   }()
@@ -132,7 +94,6 @@ class WelcomeViewController: UIViewController {
     navigationController?.setNavigationBarHidden(true, animated: false)
     setupBackground()
     setupLayout()
-    setupButtonAnimations()
   }
 
   override func viewDidLayoutSubviews() {
@@ -265,77 +226,13 @@ class WelcomeViewController: UIViewController {
     }
   }
 
-  // MARK: - Helpers
-  private func makeSocialButton(imageName: String?, sfSymbol: String?, tint: UIColor) -> UIButton {
-    let btn = UIButton(type: .system)
-    btn.backgroundColor = .systemBackground
-    btn.layer.cornerRadius = 27
-    btn.layer.borderWidth = 1
-    btn.layer.borderColor = UIColor.borderGray.cgColor
-    btn.layer.shadowColor = UIColor.label.withAlphaComponent(0.16).cgColor
-    btn.layer.shadowOpacity = 0.06
-    btn.layer.shadowRadius = 8
-    btn.layer.shadowOffset = CGSize(width: 0, height: 2)
-    btn.translatesAutoresizingMaskIntoConstraints = false
-
-    if let symbol = sfSymbol, let img = UIImage(systemName: symbol) {
-      btn.setImage(img.withRenderingMode(.alwaysOriginal).withTintColor(tint), for: .normal)
-    } else if imageName != nil {
-      let l = UILabel()
-      l.text = "G"
-      l.font = .systemFont(ofSize: 20, weight: .bold)
-      l.textColor = tint
-      l.translatesAutoresizingMaskIntoConstraints = false
-      btn.addSubview(l)
-      NSLayoutConstraint.activate([
-        l.centerXAnchor.constraint(equalTo: btn.centerXAnchor),
-        l.centerYAnchor.constraint(equalTo: btn.centerYAnchor),
-      ])
-    }
-
-    NSLayoutConstraint.activate([
-      btn.widthAnchor.constraint(equalToConstant: 54),
-      btn.heightAnchor.constraint(equalToConstant: 54),
-    ])
-    return btn
-  }
-
   private func updateDynamicColors() {
     backgroundGradient.colors = [
-      UIColor.welcomeBackgroundStart.cgColor,
-      UIColor.welcomeBackgroundEnd.cgColor,
+      BCTheme.Colors.primarySoft.cgColor,
+      BCTheme.Colors.background.cgColor,
     ]
-    registerButton.layer.borderColor = UIColor.borderGray.cgColor
-    socialStack.arrangedSubviews.forEach { view in
-      view.layer.borderColor = UIColor.borderGray.cgColor
-      view.layer.shadowColor = UIColor.label.withAlphaComponent(0.16).cgColor
-    }
-  }
-
-  // MARK: - Interactive Button Animations
-  private func setupButtonAnimations() {
-    let buttons = [loginButton, registerButton]
-    for btn in buttons {
-      btn.addTarget(self, action: #selector(btnDown(_:)), for: .touchDown)
-      btn.addTarget(
-        self, action: #selector(btnUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
-    }
-  }
-
-  @objc private func btnDown(_ sender: UIButton) {
-    UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseIn) {
-      sender.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
-      sender.alpha = 0.9
-    }
-  }
-
-  @objc private func btnUp(_ sender: UIButton) {
-    UIView.animate(
-      withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.8,
-      options: []
-    ) {
-      sender.transform = .identity
-      sender.alpha = 1
+    if let stack = socialStack.arrangedSubviews as? [BCSocialButton] {
+      stack.forEach { $0.updateTraitBorder() }
     }
   }
 

@@ -31,11 +31,13 @@ async def create_message(
         file_name=file_name,
     )
     db.add(message)
+    await db.flush()
+    message_id = message.id
     await db.commit()
     result = await db.execute(
         select(Message)
         .options(selectinload(Message.user))
-        .where(Message.id == message.id)
+        .where(Message.id == message_id)
     )
     message = result.scalar_one()
     await broadcast_message(message)

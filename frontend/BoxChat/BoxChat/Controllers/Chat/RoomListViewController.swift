@@ -21,12 +21,23 @@ final class RoomListViewController: UIViewController {
     private var rooms: [Room] = []
     private var selectedFilter: Filter = .all
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let fallbackIsoFormatter: ISO8601DateFormatter = {
+        return ISO8601DateFormatter()
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = BCTheme.Colors.surface
         navigationController?.setNavigationBarHidden(true, animated: false)
         setupHeader()
         setupTableView()
+        installTapToDismissKeyboard()
         ensureCurrentUserLoaded()
         fetchRooms()
         WebSocketService.shared.addDelegate(self)
@@ -54,27 +65,30 @@ final class RoomListViewController: UIViewController {
 
     private func setupHeader() {
         titleLabel.attributedText = brandTitle()
+
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
         addButton.tintColor = .white
-        addButton.backgroundColor = .systemBlue
+        addButton.backgroundColor = BCTheme.Colors.primary
         addButton.layer.cornerRadius = 18
         addButton.addTarget(self, action: #selector(didTapAddRoom), for: .touchUpInside)
 
-        searchContainer.backgroundColor = .secondarySystemBackground
+        searchContainer.backgroundColor = BCTheme.Colors.surfaceElevated
         searchContainer.layer.cornerRadius = 18
         searchContainer.layer.cornerCurve = .continuous
 
-        searchIcon.tintColor = .secondaryLabel
+        searchIcon.tintColor = BCTheme.Colors.textTertiary
         searchIcon.contentMode = .scaleAspectFit
 
         searchTextField.placeholder = "Tìm kiếm"
-        searchTextField.font = .systemFont(ofSize: 15, weight: .medium)
+        searchTextField.font = BCTheme.Typography.body
         searchTextField.borderStyle = .none
         searchTextField.clearButtonMode = .whileEditing
+        searchTextField.returnKeyType = .search
+        searchTextField.delegate = self
         searchTextField.addTarget(self, action: #selector(searchDidChange), for: .editingChanged)
 
         filterStackView.axis = .horizontal
-        filterStackView.spacing = 10
+        filterStackView.spacing = BCTheme.Layout.paddingS
         filterStackView.alignment = .center
         Filter.allCases.forEach { filterStackView.addArrangedSubview(makeFilterButton($0)) }
 
@@ -89,16 +103,16 @@ final class RoomListViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 18),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
 
-            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
             addButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             addButton.widthAnchor.constraint(equalToConstant: 36),
             addButton.heightAnchor.constraint(equalToConstant: 36),
 
             searchContainer.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 18),
-            searchContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            searchContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            searchContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            searchContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
             searchContainer.heightAnchor.constraint(equalToConstant: 46),
 
             searchIcon.leadingAnchor.constraint(equalTo: searchContainer.leadingAnchor, constant: 14),
@@ -111,8 +125,8 @@ final class RoomListViewController: UIViewController {
             searchTextField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
 
             filterStackView.topAnchor.constraint(equalTo: searchContainer.bottomAnchor, constant: 14),
-            filterStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            filterStackView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+            filterStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+            filterStackView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
             filterStackView.heightAnchor.constraint(equalToConstant: 38),
         ])
     }
@@ -122,11 +136,14 @@ final class RoomListViewController: UIViewController {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
+        tableView.keyboardDismissMode = .interactive
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(RoomCell.self, forCellReuseIdentifier: RoomCell.identifier)
         tableView.rowHeight = 76
         tableView.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 20, right: 0)
+
+        refreshControl.tintColor = BCTheme.Colors.primary
         refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
         tableView.refreshControl = refreshControl
         NSLayoutConstraint.activate([
@@ -138,29 +155,39 @@ final class RoomListViewController: UIViewController {
     }
 
     private func brandTitle() -> NSAttributedString {
-        let text = NSMutableAttributedString(string: "Box", attributes: [.font: UIFont.systemFont(ofSize: 32, weight: .heavy), .foregroundColor: UIColor.label])
-        text.append(NSAttributedString(string: "Chat", attributes: [.font: UIFont.systemFont(ofSize: 32, weight: .heavy), .foregroundColor: UIColor.systemBlue]))
+        let text = NSMutableAttributedString(string: "Box", attributes: [.font: UIFont.systemFont(ofSize: 32, weight: .heavy), .foregroundColor: BCTheme.Colors.textPrimary])
+        text.append(NSAttributedString(string: "Chat", attributes: [.font: UIFont.systemFont(ofSize: 32, weight: .heavy), .foregroundColor: BCTheme.Colors.primary]))
         return text
     }
 
     private func makeFilterButton(_ filter: Filter) -> UIButton {
         let button = UIButton(type: .system)
-        button.setTitle(filter.rawValue, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
-        button.contentEdgeInsets = UIEdgeInsets(top: 9, left: 16, bottom: 9, right: 16)
+
+        var config = UIButton.Configuration.plain()
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = BCTheme.Typography.subheadlineBold
+            return outgoing
+        }
+        config.title = filter.rawValue
+        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 16, bottom: 9, trailing: 16)
+        config.baseBackgroundColor = .clear
+
+        button.configuration = config
         button.layer.cornerRadius = 18
         button.layer.cornerCurve = .continuous
         button.tag = Filter.allCases.firstIndex(of: filter) ?? 0
         button.addTarget(self, action: #selector(didTapFilter(_:)), for: .touchUpInside)
+
         styleFilterButton(button, selected: filter == selectedFilter)
         return button
     }
 
     private func styleFilterButton(_ button: UIButton, selected: Bool) {
-        button.backgroundColor = selected ? UIColor.systemBlue.withAlphaComponent(0.13) : .secondarySystemBackground
-        button.setTitleColor(selected ? .systemBlue : .secondaryLabel, for: .normal)
+        button.backgroundColor = selected ? BCTheme.Colors.primarySoft : BCTheme.Colors.surfaceElevated
+        button.tintColor = selected ? BCTheme.Colors.primary : BCTheme.Colors.textSecondary
         button.layer.borderWidth = selected ? 0 : 1
-        button.layer.borderColor = UIColor.separator.withAlphaComponent(0.28).cgColor
+        button.layer.borderColor = BCTheme.Colors.separator.cgColor
     }
 
     @objc private func fetchRooms() {
@@ -176,7 +203,7 @@ final class RoomListViewController: UIViewController {
                     self.joinFetchedRooms()
                     self.applyFilters(animated: true)
                 } else if case .failure(let error) = result {
-                    self.showAlert(title: "Không tải được phòng", message: error.localizedDescription)
+                    BCToast.show(error.localizedDescription, style: .error)
                 }
             }
         }
@@ -210,8 +237,11 @@ final class RoomListViewController: UIViewController {
         filterStackView.arrangedSubviews.compactMap { $0 as? UIButton }.forEach {
             styleFilterButton($0, selected: $0.tag == sender.tag)
         }
-        UIView.animate(withDuration: 0.18) { sender.transform = CGAffineTransform(scaleX: 1.04, y: 1.04) }
-        completion: { _ in UIView.animate(withDuration: 0.18) { sender.transform = .identity } }
+        UIView.animate(withDuration: 0.18, animations: { 
+            sender.transform = CGAffineTransform(scaleX: 1.04, y: 1.04) 
+        }, completion: { _ in 
+            UIView.animate(withDuration: 0.18) { sender.transform = .identity } 
+        })
         applyFilters(animated: true)
     }
 
@@ -238,26 +268,24 @@ final class RoomListViewController: UIViewController {
         tableView.reloadData()
         if animated { animateVisibleCells() }
     }
-    
-    private func latestDate(for room: Room) -> Date {
-        let iso = ISO8601DateFormatter()
 
+    private func latestDate(for room: Room) -> Date {
         let localLatest = ChatLocalStore.shared
             .loadMessages(roomId: room.id)
-            .compactMap { iso.date(from: $0.createdAt) }
+            .compactMap { Self.isoFormatter.date(from: $0.createdAt) ?? Self.fallbackIsoFormatter.date(from: $0.createdAt) }
             .max()
 
         let serverLatest = room.lastMessage.flatMap {
-            iso.date(from: $0.createdAt)
+            Self.isoFormatter.date(from: $0.createdAt) ?? Self.fallbackIsoFormatter.date(from: $0.createdAt)
         }
 
-        let roomCreated = iso.date(from: room.createdAt)
+        let roomCreated = Self.isoFormatter.date(from: room.createdAt) ?? Self.fallbackIsoFormatter.date(from: room.createdAt)
 
         return [localLatest, serverLatest, roomCreated]
             .compactMap { $0 }
             .max() ?? .distantPast
     }
-    
+
     private func animateVisibleCells() {
         tableView.visibleCells.enumerated().forEach { index, cell in
             cell.alpha = 0
@@ -291,7 +319,7 @@ final class RoomListViewController: UIViewController {
 
     private func handleScannedQRCode(_ value: String) {
         guard let payload = Constants.qrPayload(from: value) else {
-            showAlert(title: "QR không hợp lệ", message: "Mã này không phải mã BoxChat.")
+            BCToast.show("Mã này không phải mã BoxChat.", style: .error)
             return
         }
 
@@ -306,7 +334,7 @@ final class RoomListViewController: UIViewController {
     private func sendFriendRequest(username: String) {
         let clean = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else {
-            showAlert(title: "QR không hợp lệ", message: "Không tìm thấy username để kết bạn.")
+            BCToast.show("Không tìm thấy username để kết bạn.", style: .error)
             return
         }
         addButton.isEnabled = false
@@ -316,9 +344,9 @@ final class RoomListViewController: UIViewController {
                 self.addButton.isEnabled = true
                 switch result {
                 case .success:
-                    self.showAlert(title: "Đã gửi lời mời", message: "Đợi @\(clean) chấp nhận để chat riêng.")
+                    BCToast.show("Đã gửi lời mời tới @\(clean)", style: .success)
                 case .failure(let error):
-                    self.showAlert(title: "Không thể kết bạn", message: error.localizedDescription)
+                    BCToast.show(error.localizedDescription, style: .error)
                 }
             }
         }
@@ -352,7 +380,10 @@ final class RoomListViewController: UIViewController {
     }
 
     private func joinRoom(inviteCode: String) {
-        guard !inviteCode.isEmpty else { showAlert(title: "Thiếu mã mời", message: "Bạn cần nhập mã mời để tham gia nhóm."); return }
+        guard !inviteCode.isEmpty else {
+            BCToast.show("Bạn cần nhập mã mời để tham gia nhóm.", style: .error)
+            return
+        }
         addButton.isEnabled = false
         NetworkManager.shared.joinRoom(inviteCode: inviteCode) { [weak self] result in
             DispatchQueue.main.async {
@@ -365,16 +396,10 @@ final class RoomListViewController: UIViewController {
                     chatVC.hidesBottomBarWhenPushed = true
                     self.navigationController?.pushViewController(chatVC, animated: true)
                 case .failure(let error):
-                    self.showAlert(title: "Không thể tham gia", message: error.localizedDescription)
+                    BCToast.show(error.localizedDescription, style: .error)
                 }
             }
         }
-    }
-
-    private func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
     }
 
     private func performLogout() {
@@ -405,6 +430,13 @@ extension RoomListViewController: UITableViewDataSource, UITableViewDelegate {
         let chatVC = ChatRoomViewController(room: rooms[indexPath.row])
         chatVC.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(chatVC, animated: true)
+    }
+}
+
+extension RoomListViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
     }
 }
 
@@ -456,7 +488,7 @@ extension RoomListViewController: WebSocketServiceDelegate {
                 fileUrl: object["file_url"] as? String,
                 fileName: object["file_name"] as? String,
                 status: "sent",
-                createdAt: object["created_at"] as? String ?? ISO8601DateFormatter().string(from: Date())
+                createdAt: object["created_at"] as? String ?? Self.isoFormatter.string(from: Date())
             )
         }
         guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }

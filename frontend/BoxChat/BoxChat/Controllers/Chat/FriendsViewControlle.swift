@@ -11,7 +11,14 @@ final class FriendsViewController: UIViewController {
   private let segmentedControl = UISegmentedControl(items: ["Bạn bè", "Lời mời", "Gần đây", "Tìm kiếm"])
   private let searchBar = UISearchBar()
   private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-  private let emptyLabel = UILabel()
+  private let refreshControl = UIRefreshControl()
+
+  private lazy var emptyStateView = BCEmptyState(
+    title: "Chưa có bạn bè",
+    message: "Hãy tìm username để kết bạn.",
+    iconName: "person.2.slash"
+  )
+
   private var tableBottomConstraint: NSLayoutConstraint?
   private var searchBarHeightConstraint: NSLayoutConstraint?
 
@@ -25,13 +32,16 @@ final class FriendsViewController: UIViewController {
     super.viewDidLoad()
     title = "Bạn bè"
     navigationController?.navigationBar.prefersLargeTitles = true
-    view.backgroundColor = .systemGroupedBackground
+    view.backgroundColor = BCTheme.Colors.background
+
     setupControls()
     setupTableView()
     setupEmptyState()
     setupKeyboardHandling()
+
     LocalPeerDiscoveryService.shared.delegate = self
     LocalPeerDiscoveryService.shared.start(currentUser: TokenManager.shared.currentUser)
+
     reloadData()
   }
 
@@ -56,9 +66,11 @@ final class FriendsViewController: UIViewController {
   private func setupControls() {
     segmentedControl.selectedSegmentIndex = 0
     segmentedControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
+
     searchBar.placeholder = "Tìm theo username"
     searchBar.delegate = self
     searchBar.isHidden = true
+    searchBar.searchBarStyle = .minimal
     searchBarHeightConstraint = searchBar.heightAnchor.constraint(equalToConstant: 0)
 
     [segmentedControl, searchBar].forEach {
@@ -68,12 +80,12 @@ final class FriendsViewController: UIViewController {
 
     NSLayoutConstraint.activate([
       segmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-      segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-      segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+      segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: BCTheme.Layout.paddingM),
+      segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingM),
 
-      searchBar.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
-      searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-      searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      searchBar.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 4),
+      searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+      searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
       searchBarHeightConstraint!,
     ])
   }
@@ -82,7 +94,18 @@ final class FriendsViewController: UIViewController {
     tableView.dataSource = self
     tableView.delegate = self
     tableView.keyboardDismissMode = .interactive
-    tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+    tableView.backgroundColor = .clear
+    tableView.rowHeight = 64
+
+    tableView.register(FriendCell.self, forCellReuseIdentifier: FriendCell.identifier)
+    tableView.register(FriendRequestCell.self, forCellReuseIdentifier: FriendRequestCell.identifier)
+    tableView.register(NearbyCell.self, forCellReuseIdentifier: NearbyCell.identifier)
+    tableView.register(SearchResultCell.self, forCellReuseIdentifier: SearchResultCell.identifier)
+
+    refreshControl.tintColor = BCTheme.Colors.primary
+    refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+    tableView.refreshControl = refreshControl
+
     tableView.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(tableView)
 
@@ -96,17 +119,13 @@ final class FriendsViewController: UIViewController {
   }
 
   private func setupEmptyState() {
-    emptyLabel.font = .systemFont(ofSize: 15, weight: .medium)
-    emptyLabel.textColor = .secondaryLabel
-    emptyLabel.textAlignment = .center
-    emptyLabel.numberOfLines = 0
-    emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-    view.addSubview(emptyLabel)
+    emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(emptyStateView)
     NSLayoutConstraint.activate([
-      emptyLabel.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
-      emptyLabel.centerYAnchor.constraint(equalTo: tableView.centerYAnchor, constant: -30),
-      emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
-      emptyLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+      emptyStateView.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
+      emptyStateView.centerYAnchor.constraint(equalTo: tableView.centerYAnchor, constant: -30),
+      emptyStateView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: BCTheme.Layout.paddingL),
+      emptyStateView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -BCTheme.Layout.paddingL),
     ])
   }
 
@@ -126,11 +145,16 @@ final class FriendsViewController: UIViewController {
     reloadData()
   }
 
+  @objc private func handleRefresh() {
+    reloadData()
+  }
+
   private func reloadData() {
     switch mode {
     case .friends:
       NetworkManager.shared.fetchFriends { [weak self] result in
         DispatchQueue.main.async {
+          self?.refreshControl.endRefreshing()
           if case .success(let items) = result { self?.friends = items }
           self?.refreshTable()
         }
@@ -138,13 +162,16 @@ final class FriendsViewController: UIViewController {
     case .requests:
       NetworkManager.shared.fetchIncomingFriendRequests { [weak self] result in
         DispatchQueue.main.async {
+          self?.refreshControl.endRefreshing()
           if case .success(let items) = result { self?.requests = items }
           self?.refreshTable()
         }
       }
     case .nearby:
+      refreshControl.endRefreshing()
       refreshTable()
     case .search:
+      refreshControl.endRefreshing()
       searchUsers()
     }
   }
@@ -152,17 +179,17 @@ final class FriendsViewController: UIViewController {
   private func refreshTable() {
     switch mode {
     case .friends:
-      emptyLabel.text = "Chưa có bạn bè. Hãy tìm username để kết bạn."
-      emptyLabel.isHidden = !friends.isEmpty
+      emptyStateView.configure(title: "Chưa có bạn bè", message: "Hãy tìm username để kết bạn.", iconName: "person.2.slash")
+      emptyStateView.isHidden = !friends.isEmpty
     case .requests:
-      emptyLabel.text = "Chưa có lời mời kết bạn."
-      emptyLabel.isHidden = !requests.isEmpty
+      emptyStateView.configure(title: "Không có lời mời", message: "Chưa có lời mời kết bạn nào.", iconName: "person.crop.circle.badge.exclamationmark")
+      emptyStateView.isHidden = !requests.isEmpty
     case .nearby:
-      emptyLabel.text = "Chưa thấy ai gần đây. Hãy mở app trên các máy cùng Wi-Fi và cho phép quyền Local Network."
-      emptyLabel.isHidden = !nearbyUsers.isEmpty
+      emptyStateView.configure(title: "Chưa tìm thấy ai", message: "Hãy mở app trên các máy cùng Wi-Fi và cho phép quyền Local Network.", iconName: "wifi.slash")
+      emptyStateView.isHidden = !nearbyUsers.isEmpty
     case .search:
-      emptyLabel.text = "Nhập username để tìm bạn."
-      emptyLabel.isHidden = !searchResults.isEmpty || !(searchBar.text ?? "").isEmpty
+      emptyStateView.configure(title: "Tìm kiếm", message: "Nhập username để tìm bạn.", iconName: "magnifyingglass")
+      emptyStateView.isHidden = !searchResults.isEmpty || !(searchBar.text ?? "").isEmpty
     }
     tableView.reloadData()
   }
@@ -184,55 +211,30 @@ final class FriendsViewController: UIViewController {
     }
   }
 
-  private func showError(_ error: Error) {
-    let alert = UIAlertController(title: "Không thực hiện được", message: error.localizedDescription, preferredStyle: .alert)
-    alert.addAction(UIAlertAction(title: "OK", style: .default))
-    present(alert, animated: true)
-  }
-
   private func sendFriendRequest(username: String, displayName: String) {
-    NetworkManager.shared.sendFriendRequest(username: username) { [weak self] result in
+    NetworkManager.shared.sendFriendRequest(username: username) { result in
       DispatchQueue.main.async {
         switch result {
         case .success:
-          let alert = UIAlertController(
-            title: "Đã gửi lời mời",
-            message: "Đợi \(displayName) chấp nhận để chat riêng.",
-            preferredStyle: .alert)
-          alert.addAction(UIAlertAction(title: "OK", style: .default))
-          self?.present(alert, animated: true)
+          BCToast.show("Đã gửi lời mời tới \(displayName)", style: .success)
         case .failure(let error):
-          self?.showError(error)
+          BCToast.show(error.localizedDescription, style: .error)
         }
       }
     }
   }
 
   private func setupKeyboardHandling() {
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(keyboardWillChangeFrame(_:)),
-      name: UIResponder.keyboardWillChangeFrameNotification,
-      object: nil)
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(keyboardWillHide(_:)),
-      name: UIResponder.keyboardWillHideNotification,
-      object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
-    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-    tapGesture.cancelsTouchesInView = false
-    tapGesture.delegate = self
-    view.addGestureRecognizer(tapGesture)
+    installTapToDismissKeyboard()
   }
 
-  @objc private func dismissKeyboard() {
-    view.endEditing(true)
-  }
+  @objc private func dismissKeyboard() { view.endEditing(true) }
 
   @objc private func keyboardWillChangeFrame(_ notification: Notification) {
-    guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue
-    else { return }
+    guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
     let keyboardFrame = view.convert(frame.cgRectValue, from: nil)
     let overlap = max(0, view.bounds.maxY - keyboardFrame.minY)
     updateTableBottomConstraint(overlap: overlap, notification: notification)
@@ -244,16 +246,9 @@ final class FriendsViewController: UIViewController {
 
   private func updateTableBottomConstraint(overlap: CGFloat, notification: Notification) {
     tableBottomConstraint?.constant = -overlap
-    let duration =
-      notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
-    let rawCurve =
-      notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt
-      ?? UInt(UIView.AnimationOptions.curveEaseInOut.rawValue)
-    UIView.animate(
-      withDuration: duration,
-      delay: 0,
-      options: UIView.AnimationOptions(rawValue: rawCurve << 16),
-      animations: { self.view.layoutIfNeeded() })
+    let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+    let rawCurve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? UInt(UIView.AnimationOptions.curveEaseInOut.rawValue)
+    UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: rawCurve << 16), animations: { self.view.layoutIfNeeded() })
   }
 }
 
@@ -262,10 +257,10 @@ extension FriendsViewController: UISearchBarDelegate {
     NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(runSearch), object: nil)
     perform(#selector(runSearch), with: nil, afterDelay: 0.35)
   }
-
-  @objc private func runSearch() {
-    searchUsers()
+  func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+    searchBar.resignFirstResponder()
   }
+  @objc private func runSearch() { searchUsers() }
 }
 
 extension FriendsViewController: UIGestureRecognizerDelegate {
@@ -287,42 +282,46 @@ extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-    var config = cell.defaultContentConfiguration()
-    config.imageProperties.tintColor = .systemBlue
-
     switch mode {
     case .friends:
-      let item = friends[indexPath.row]
-      config.image = UIImage(systemName: "person.crop.circle.fill")
-      config.text = item.friend.displayName ?? item.friend.username
-      config.secondaryText = item.room?.name ?? "Chat riêng"
-      cell.accessoryType = .disclosureIndicator
+      let cell = tableView.dequeueReusableCell(withIdentifier: FriendCell.identifier, for: indexPath) as! FriendCell
+      cell.configure(friend: friends[indexPath.row].friend, room: friends[indexPath.row].room)
+      return cell
 
     case .requests:
-      let item = requests[indexPath.row]
-      config.image = UIImage(systemName: "person.badge.plus")
-      config.text = item.requester.displayName ?? item.requester.username
-      config.secondaryText = "@\(item.requester.username) muốn kết bạn"
-      cell.accessoryType = .none
+      let cell = tableView.dequeueReusableCell(withIdentifier: FriendRequestCell.identifier, for: indexPath) as! FriendRequestCell
+      let request = requests[indexPath.row]
+      cell.configure(request: request)
+      cell.onAccept = { [weak self] in
+        NetworkManager.shared.acceptFriendRequest(id: request.id) { result in
+          DispatchQueue.main.async {
+            switch result {
+            case .success:
+                BCToast.show("Đã chấp nhận kết bạn", style: .success)
+                self?.reloadData()
+            case .failure(let error):
+                BCToast.show(error.localizedDescription, style: .error)
+            }
+          }
+        }
+      }
+      cell.onDecline = { [weak self] in
+        NetworkManager.shared.rejectFriendRequest(id: request.id) { _ in
+          DispatchQueue.main.async { self?.reloadData() }
+        }
+      }
+      return cell
 
     case .nearby:
-      let user = nearbyUsers[indexPath.row]
-      config.image = UIImage(systemName: "wifi.circle.fill")
-      config.text = user.displayName
-      config.secondaryText = "@\(user.username) đang ở gần"
-      cell.accessoryType = .none
+      let cell = tableView.dequeueReusableCell(withIdentifier: NearbyCell.identifier, for: indexPath) as! NearbyCell
+      cell.configure(user: nearbyUsers[indexPath.row])
+      return cell
 
     case .search:
-      let user = searchResults[indexPath.row]
-      config.image = UIImage(systemName: "magnifyingglass.circle.fill")
-      config.text = user.displayName ?? user.username
-      config.secondaryText = "@\(user.username)"
-      cell.accessoryType = .none
+      let cell = tableView.dequeueReusableCell(withIdentifier: SearchResultCell.identifier, for: indexPath) as! SearchResultCell
+      cell.configure(user: searchResults[indexPath.row])
+      return cell
     }
-
-    cell.contentConfiguration = config
-    return cell
   }
 
   func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -332,27 +331,7 @@ extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
       showFriendActions(friends[indexPath.row])
 
     case .requests:
-      let request = requests[indexPath.row]
-      let sheet = UIAlertController(title: request.requester.username, message: nil, preferredStyle: .actionSheet)
-      sheet.addAction(UIAlertAction(title: "Chấp nhận", style: .default) { [weak self] _ in
-        NetworkManager.shared.acceptFriendRequest(id: request.id) { result in
-          DispatchQueue.main.async {
-            switch result {
-            case .success:
-              self?.reloadData()
-            case .failure(let error):
-              self?.showError(error)
-            }
-          }
-        }
-      })
-      sheet.addAction(UIAlertAction(title: "Từ chối", style: .destructive) { [weak self] _ in
-        NetworkManager.shared.rejectFriendRequest(id: request.id) { _ in
-          DispatchQueue.main.async { self?.reloadData() }
-        }
-      })
-      sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-      present(sheet, animated: true)
+        break // Handled by buttons
 
     case .nearby:
       let user = nearbyUsers[indexPath.row]
@@ -364,10 +343,7 @@ extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
     }
   }
 
-  func tableView(
-    _ tableView: UITableView,
-    trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
-  ) -> UISwipeActionsConfiguration? {
+  func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
     guard mode == .friends else { return nil }
     let action = UIContextualAction(style: .destructive, title: "Xóa") { [weak self] _, _, done in
       guard let self else {
@@ -418,7 +394,7 @@ extension FriendsViewController: UITableViewDataSource, UITableViewDelegate {
           self?.friends.removeAll { $0.id == friendship.id }
           self?.refreshTable()
         case .failure(let error):
-          self?.showError(error)
+          BCToast.show(error.localizedDescription, style: .error)
         }
       }
     }
@@ -432,4 +408,249 @@ extension FriendsViewController: LocalPeerDiscoveryServiceDelegate {
       refreshTable()
     }
   }
+}
+
+// MARK: - Custom Cells
+
+private final class FriendCell: UITableViewCell {
+    static let identifier = "FriendCell"
+    private let avatar = BCAvatar(size: BCTheme.Layout.avatarS)
+    private let nameLabel = UILabel()
+    private let usernameLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        accessoryType = .disclosureIndicator
+        backgroundColor = BCTheme.Colors.surface
+
+        nameLabel.font = BCTheme.Typography.subheadlineBold
+        nameLabel.textColor = BCTheme.Colors.textPrimary
+
+        usernameLabel.font = BCTheme.Typography.caption
+        usernameLabel.textColor = BCTheme.Colors.textSecondary
+
+        let stack = UIStackView(arrangedSubviews: [nameLabel, usernameLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+
+        [avatar, stack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            avatar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            avatar.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            stack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            stack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM),
+        ])
+    }
+
+    func configure(friend: UserResponse, room: Room?) {
+        avatar.configure(name: friend.displayName ?? friend.username, url: friend.avatarUrl)
+        nameLabel.text = friend.displayName ?? friend.username
+        usernameLabel.text = room?.name ?? "@\(friend.username)"
+    }
+}
+
+private final class FriendRequestCell: UITableViewCell {
+    static let identifier = "FriendRequestCell"
+    private let avatar = BCAvatar(size: BCTheme.Layout.avatarM)
+    private let nameLabel = UILabel()
+    private let usernameLabel = UILabel()
+    private let acceptButton = UIButton(type: .system)
+    private let declineButton = UIButton(type: .system)
+
+    var onAccept: (() -> Void)?
+    var onDecline: (() -> Void)?
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        selectionStyle = .none
+        backgroundColor = BCTheme.Colors.surface
+
+        nameLabel.font = BCTheme.Typography.subheadlineBold
+        nameLabel.textColor = BCTheme.Colors.textPrimary
+
+        usernameLabel.font = BCTheme.Typography.caption
+        usernameLabel.textColor = BCTheme.Colors.textSecondary
+
+        let textStack = UIStackView(arrangedSubviews: [nameLabel, usernameLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+
+        var acceptConfig = UIButton.Configuration.filled()
+        acceptConfig.image = UIImage(systemName: "checkmark")
+        acceptConfig.baseBackgroundColor = BCTheme.Colors.primary
+        acceptConfig.baseForegroundColor = .white
+        acceptConfig.cornerStyle = .capsule
+        acceptButton.configuration = acceptConfig
+        acceptButton.addAction(UIAction { [weak self] _ in self?.onAccept?() }, for: .touchUpInside)
+
+        var declineConfig = UIButton.Configuration.filled()
+        declineConfig.image = UIImage(systemName: "xmark")
+        declineConfig.baseBackgroundColor = BCTheme.Colors.surfaceElevated
+        declineConfig.baseForegroundColor = BCTheme.Colors.textSecondary
+        declineConfig.cornerStyle = .capsule
+        declineButton.configuration = declineConfig
+        declineButton.addAction(UIAction { [weak self] _ in self?.onDecline?() }, for: .touchUpInside)
+
+        let btnStack = UIStackView(arrangedSubviews: [acceptButton, declineButton])
+        btnStack.axis = .horizontal
+        btnStack.spacing = 8
+
+        [avatar, textStack, btnStack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            avatar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            avatar.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            textStack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            textStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            btnStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM),
+            btnStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            btnStack.leadingAnchor.constraint(greaterThanOrEqualTo: textStack.trailingAnchor, constant: 8),
+
+            acceptButton.widthAnchor.constraint(equalToConstant: 36),
+            acceptButton.heightAnchor.constraint(equalToConstant: 36),
+            declineButton.widthAnchor.constraint(equalToConstant: 36),
+            declineButton.heightAnchor.constraint(equalToConstant: 36)
+        ])
+    }
+
+    func configure(request: FriendRequestModel) {
+        avatar.configure(name: request.requester.displayName ?? request.requester.username, url: request.requester.avatarUrl)
+        nameLabel.text = request.requester.displayName ?? request.requester.username
+        usernameLabel.text = "@\(request.requester.username)"
+    }
+}
+
+private final class NearbyCell: UITableViewCell {
+    static let identifier = "NearbyCell"
+    private let iconView = UIImageView()
+    private let nameLabel = UILabel()
+    private let infoLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        backgroundColor = BCTheme.Colors.surface
+
+        iconView.image = UIImage(systemName: "wifi.circle.fill")
+        iconView.tintColor = BCTheme.Colors.primary
+        iconView.contentMode = .scaleAspectFit
+
+        nameLabel.font = BCTheme.Typography.subheadlineBold
+        nameLabel.textColor = BCTheme.Colors.textPrimary
+
+        infoLabel.font = BCTheme.Typography.caption
+        infoLabel.textColor = BCTheme.Colors.textSecondary
+
+        let stack = UIStackView(arrangedSubviews: [nameLabel, infoLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+
+        [iconView, stack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 36),
+            iconView.heightAnchor.constraint(equalToConstant: 36),
+
+            stack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            stack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM)
+        ])
+    }
+
+    func configure(user: LocalDiscoveredUser) {
+        nameLabel.text = user.displayName
+        infoLabel.text = "@\(user.username) đang ở gần"
+    }
+}
+
+private final class SearchResultCell: UITableViewCell {
+    static let identifier = "SearchResultCell"
+    private let avatar = BCAvatar(size: BCTheme.Layout.avatarM)
+    private let nameLabel = UILabel()
+    private let usernameLabel = UILabel()
+    private let addButton = UIButton(type: .system)
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        selectionStyle = .none
+        backgroundColor = BCTheme.Colors.surface
+
+        nameLabel.font = BCTheme.Typography.subheadlineBold
+        nameLabel.textColor = BCTheme.Colors.textPrimary
+
+        usernameLabel.font = BCTheme.Typography.caption
+        usernameLabel.textColor = BCTheme.Colors.textSecondary
+
+        let stack = UIStackView(arrangedSubviews: [nameLabel, usernameLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+
+        var config = UIButton.Configuration.filled()
+        config.image = UIImage(systemName: "person.badge.plus")
+        config.baseBackgroundColor = BCTheme.Colors.primarySoft
+        config.baseForegroundColor = BCTheme.Colors.primary
+        config.cornerStyle = .capsule
+        addButton.configuration = config
+        addButton.isUserInteractionEnabled = false // let row selection handle action
+
+        [avatar, stack, addButton].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        NSLayoutConstraint.activate([
+            avatar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: BCTheme.Layout.paddingM),
+            avatar.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            stack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: BCTheme.Layout.paddingM),
+            stack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -BCTheme.Layout.paddingM),
+            addButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            addButton.leadingAnchor.constraint(greaterThanOrEqualTo: stack.trailingAnchor, constant: 8),
+            addButton.widthAnchor.constraint(equalToConstant: 36),
+            addButton.heightAnchor.constraint(equalToConstant: 36)
+        ])
+    }
+
+    func configure(user: UserResponse) {
+        avatar.configure(name: user.displayName ?? user.username, url: user.avatarUrl)
+        nameLabel.text = user.displayName ?? user.username
+        usernameLabel.text = "@\(user.username)"
+    }
 }

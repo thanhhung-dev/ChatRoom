@@ -25,23 +25,22 @@ class SplashViewController: UIViewController {
   private let boxLabel: UILabel = {
     let l = UILabel()
     l.text = "Box"
-    l.font = .systemFont(ofSize: 40, weight: .bold)
-    l.textColor = .white
+    l.font = BCTheme.Typography.displayLarge
+    l.textColor = BCTheme.Colors.textPrimary
     return l
   }()
   private let chatLabel: UILabel = {
     let l = UILabel()
-    let color = UIColor(red: 0.19, green: 0.47, blue: 1.0, alpha: 1)
     l.text = "Chat"
-    l.font = .systemFont(ofSize: 40, weight: .bold)
-    l.textColor = color
+    l.font = BCTheme.Typography.displayLarge
+    l.textColor = BCTheme.Colors.primary
     return l
   }()
   private let taglineLabel: UILabel = {
     let l = UILabel()
     l.text = "Chat freely, connect easily."
-    l.font = .systemFont(ofSize: 13, weight: .regular)
-    l.textColor = UIColor(white: 1, alpha: 0.38)
+    l.font = BCTheme.Typography.subheadline
+    l.textColor = BCTheme.Colors.textSecondary
     l.textAlignment = .center
     return l
   }()
@@ -73,6 +72,10 @@ class SplashViewController: UIViewController {
     setupLoadingBar()
     setupShimmer()
     setupParticles()
+
+    if #available(iOS 17.0, *) {
+      registerForTraitChanges([UITraitUserInterfaceStyle.self], action: #selector(updateDynamicColors))
+    }
   }
 
   override func viewDidLayoutSubviews() {
@@ -93,18 +96,24 @@ class SplashViewController: UIViewController {
 
   // MARK: - Background
   private func setupBackground() {
-    backgroundGradient.colors = [
-      UIColor(red: 0.03, green: 0.05, blue: 0.10, alpha: 1).cgColor,
-      UIColor(red: 0.01, green: 0.02, blue: 0.05, alpha: 1).cgColor,
-    ]
+    updateDynamicColors()
     backgroundGradient.startPoint = CGPoint(x: 0.5, y: 0)
     backgroundGradient.endPoint = CGPoint(x: 0.5, y: 1)
     view.layer.insertSublayer(backgroundGradient, at: 0)
   }
 
+  @objc private func updateDynamicColors() {
+    backgroundGradient.colors = [
+      BCTheme.Colors.surfaceElevated.cgColor,
+      BCTheme.Colors.background.cgColor,
+    ]
+    gridLayer.strokeColor = BCTheme.Colors.primary.withAlphaComponent(0.05).cgColor
+    ringLayer.strokeColor = BCTheme.Colors.primary.withAlphaComponent(0.55).cgColor
+  }
+
   // MARK: - Grid
   private func setupGrid() {
-    gridLayer.strokeColor = UIColor(red: 0.19, green: 0.47, blue: 1.0, alpha: 0.05).cgColor
+    gridLayer.strokeColor = BCTheme.Colors.primary.withAlphaComponent(0.05).cgColor
     gridLayer.fillColor = UIColor.clear.cgColor
     gridLayer.lineWidth = 0.5
     gridLayer.opacity = 0
@@ -224,7 +233,7 @@ class SplashViewController: UIViewController {
 
     ringLayer.path =
       UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: size - 4, height: size - 4)).cgPath
-    ringLayer.strokeColor = UIColor(red: 0.19, green: 0.47, blue: 1.0, alpha: 0.55).cgColor
+    ringLayer.strokeColor = BCTheme.Colors.primary.withAlphaComponent(0.55).cgColor
     ringLayer.fillColor = UIColor.clear.cgColor
     ringLayer.lineWidth = 1.2
     ringLayer.lineDashPattern = [6, 6]
@@ -545,5 +554,6 @@ class SplashViewController: UIViewController {
 
   override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
     super.traitCollectionDidChange(previousTraitCollection)
+    updateDynamicColors()
   }
 }
