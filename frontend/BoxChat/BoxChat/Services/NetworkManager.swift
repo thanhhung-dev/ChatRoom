@@ -9,6 +9,7 @@ enum NetworkError: LocalizedError {
   case serverError(String)
   case decodeError
   case invalidURL
+  case fileTooLarge(maxMB: Int)
 
   var errorDescription: String? {
     switch self {
@@ -18,6 +19,7 @@ enum NetworkError: LocalizedError {
     case .serverError(let msg): return msg
     case .decodeError: return "Phản hồi từ máy chủ không hợp lệ."
     case .invalidURL: return "Địa chỉ URL không hợp lệ."
+    case .fileTooLarge(let maxMB): return "File vượt quá \(maxMB)MB. Vui lòng chọn file nhỏ hơn."
     }
   }
 }
@@ -281,6 +283,20 @@ extension NetworkManager {
     request(path: "/users/me", method: "PATCH", body: body, completion: completion)
   }
 
+  func uploadUserAvatar(
+    imageData: Data,
+    fileName: String = "avatar.jpg",
+    completion: @escaping (Result<UserResponse, Error>) -> Void
+  ) {
+    uploadMultipart(
+      path: "/users/me/avatar",
+      fileData: imageData,
+      fileName: fileName,
+      mimeType: "image/jpeg",
+      completion: completion
+    )
+  }
+
   func changePassword(
     current: String, new: String, completion: @escaping (Result<Bool, Error>) -> Void
   ) {
@@ -293,6 +309,141 @@ extension NetworkManager {
       case .failure(let err): completion(.failure(err))
       }
     }
+  }
+}
+
+// MARK: - Friend APIs
+
+extension NetworkManager {
+  func searchUsers(
+    query: String, completion: @escaping (Result<[UserResponse], Error>) -> Void
+  ) {
+    let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+    request(path: "/friends/search?q=\(encoded)", completion: completion)
+  }
+
+  func sendFriendRequest(
+    username: String, completion: @escaping (Result<FriendRequestModel, Error>) -> Void
+  ) {
+    request(
+      path: "/friends/requests",
+      method: "POST",
+      body: ["username": username],
+      completion: completion
+    )
+  }
+
+  func fetchIncomingFriendRequests(
+    completion: @escaping (Result<[FriendRequestModel], Error>) -> Void
+  ) {
+    request(path: "/friends/requests/incoming", completion: completion)
+  }
+
+  func acceptFriendRequest(
+    id: Int, completion: @escaping (Result<FriendshipModel, Error>) -> Void
+  ) {
+    request(path: "/friends/requests/\(id)/accept", method: "POST", completion: completion)
+  }
+
+  func rejectFriendRequest(id: Int, completion: @escaping (Result<Bool, Error>) -> Void) {
+    struct Empty: Codable {}
+    request(path: "/friends/requests/\(id)/reject", method: "POST") { (result: Result<Empty, Error>) in
+      switch result {
+      case .success: completion(.success(true))
+      case .failure(let error): completion(.failure(error))
+      }
+    }
+  }
+
+  func fetchFriends(completion: @escaping (Result<[FriendshipModel], Error>) -> Void) {
+    request(path: "/friends", completion: completion)
+  }
+
+  func deleteFriendship(id: Int, completion: @escaping (Result<Bool, Error>) -> Void) {
+    struct Empty: Codable {}
+    request(path: "/friends/\(id)", method: "DELETE") { (result: Result<Empty, Error>) in
+      switch result {
+      case .success:
+        completion(.success(true))
+      case .failure(let error):
+        completion(.failure(error))
+      }
+    }
+  }
+}
+
+// MARK: - Feed APIs
+
+extension NetworkManager {
+  func fetchFeed(completion: @escaping (Result<[FeedPostModel], Error>) -> Void) {
+    request(path: "/feed/posts", completion: completion)
+  }
+
+  func createFeedPost(
+    content: String,
+    fileData: Data? = nil,
+    fileName: String? = nil,
+    mimeType: String = "application/octet-stream",
+    completion: @escaping (Result<FeedPostModel, Error>) -> Void
+  ) {
+    if let fileData, let fileName {
+      guard fileData.count <= Constants.maxUploadSizeBytes else {
+        completion(.failure(NetworkError.fileTooLarge(maxMB: Constants.maxUploadSizeMB)))
+        return
+      }
+      uploadMultipart(
+        path: "/feed/posts",
+        fileData: fileData,
+        fileName: fileName,
+        mimeType: mimeType,
+        extraFields: ["content": content],
+        completion: completion
+      )
+      return
+    }
+
+    uploadMultipart(
+      path: "/feed/posts",
+      fileData: Data(),
+      fileName: "",
+      mimeType: mimeType,
+      extraFields: ["content": content],
+      includeFilePart: false,
+      completion: completion
+    )
+  }
+
+  func reactFeedPost(
+    postId: Int,
+    reaction: String,
+    completion: @escaping (Result<FeedPostModel, Error>) -> Void
+  ) {
+    request(
+      path: "/feed/posts/\(postId)/reactions",
+      method: "POST",
+      body: ["reaction": reaction],
+      completion: completion
+    )
+  }
+
+  func fetchFeedComments(
+    postId: Int,
+    completion: @escaping (Result<[FeedCommentModel], Error>) -> Void
+  ) {
+    request(path: "/feed/posts/\(postId)/comments", completion: completion)
+  }
+
+  func addFeedComment(
+    postId: Int,
+    content: String,
+    completion: @escaping (Result<FeedCommentModel, Error>) -> Void
+  ) {
+    request(
+      path: "/feed/posts/\(postId)/comments",
+      method: "POST",
+      body: ["content": content],
+      completion: completion
+    )
   }
 }
 
@@ -429,6 +580,11 @@ extension NetworkManager {
     caption: String? = nil,
     completion: @escaping (Result<Message, Error>) -> Void
   ) {
+    guard fileData.count <= Constants.maxUploadSizeBytes else {
+      completion(.failure(NetworkError.fileTooLarge(maxMB: Constants.maxUploadSizeMB)))
+      return
+    }
+
     uploadMultipart(
       path: "/rooms/\(roomId)/messages/file",
       fileData: fileData,
@@ -445,6 +601,7 @@ extension NetworkManager {
     fileName: String,
     mimeType: String,
     extraFields: [String: String] = [:],
+    includeFilePart: Bool = true,
     completion: @escaping (Result<T, Error>) -> Void
   ) {
     guard let url = URL(string: "\(Constants.apiBaseURL)\(path)") else {
@@ -464,13 +621,15 @@ extension NetworkManager {
 
     var bodyData = Data()
 
-    bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
-    bodyData.append(
-      "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(
-        using: .utf8)!)
-    bodyData.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
-    bodyData.append(fileData)
-    bodyData.append("\r\n".data(using: .utf8)!)
+    if includeFilePart {
+      bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
+      bodyData.append(
+        "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(
+          using: .utf8)!)
+      bodyData.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+      bodyData.append(fileData)
+      bodyData.append("\r\n".data(using: .utf8)!)
+    }
 
     for (name, value) in extraFields where !value.isEmpty {
       bodyData.append("--\(boundary)\r\n".data(using: .utf8)!)
@@ -503,6 +662,7 @@ extension NetworkManager {
               fileName: fileName,
               mimeType: mimeType,
               extraFields: extraFields,
+              includeFilePart: includeFilePart,
               completion: completion
             )
           } else {

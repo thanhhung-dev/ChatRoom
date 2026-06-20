@@ -34,6 +34,11 @@ final class RoomCell: UITableViewCell {
     unreadBadge.isHidden = true
   }
 
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    updateDynamicLayerColors()
+  }
+
   private func setupViews() {
     backgroundColor = .clear
     contentView.backgroundColor = .clear
@@ -57,7 +62,7 @@ final class RoomCell: UITableViewCell {
     avatarSecondary.backgroundColor = .systemTeal
     avatarSecondary.layer.cornerRadius = 16
     avatarSecondary.layer.borderWidth = 2
-    avatarSecondary.layer.borderColor = UIColor.systemBackground.cgColor
+    updateDynamicLayerColors()
     avatarSecondary.clipsToBounds = true
 
     nameLabel.font = .systemFont(ofSize: 16, weight: .bold)
@@ -82,7 +87,7 @@ final class RoomCell: UITableViewCell {
     onlineDot.backgroundColor = .systemGreen
     onlineDot.layer.cornerRadius = 5
     onlineDot.layer.borderWidth = 2
-    onlineDot.layer.borderColor = UIColor.systemBackground.cgColor
+    updateDynamicLayerColors()
 
     [avatarContainer, nameLabel, previewLabel, timeLabel, unreadBadge].forEach {
       $0.translatesAutoresizingMaskIntoConstraints = false
@@ -144,12 +149,17 @@ final class RoomCell: UITableViewCell {
     ])
   }
 
+  private func updateDynamicLayerColors() {
+    avatarSecondary.layer.borderColor = UIColor.systemBackground.cgColor
+    onlineDot.layer.borderColor = UIColor.systemBackground.cgColor
+  }
+
   func configure(with room: Room) {
-    nameLabel.text = room.name
+    nameLabel.text = room.displayName
     previewLabel.text = preview(for: room)
     timeLabel.text = timeText(for: room)
 
-    if let url = Constants.mediaURL(from: room.avatarUrl) {
+    if let url = Constants.mediaURL(from: room.displayAvatarURL) {
       avatarImageView.isHidden = false
       avatarPrimary.text = ""
       avatarTask = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
@@ -161,12 +171,12 @@ final class RoomCell: UITableViewCell {
       avatarImageView.isHidden = true
       avatarImageView.image = nil
       avatarPrimary.backgroundColor = .systemBlue
-      avatarPrimary.text = initials(room.name)
+      avatarPrimary.text = initials(room.displayName)
     }
 
-    avatarSecondary.text = room.memberCount > 1 ? "\(min(room.memberCount, 9))" : ""
-    avatarSecondary.isHidden = room.memberCount <= 1
-    onlineDot.isHidden = room.memberCount != 1
+    avatarSecondary.text = room.isDirect ? "" : (room.memberCount > 2 ? "\(min(room.memberCount, 9))" : "")
+    avatarSecondary.isHidden = room.isDirect || room.memberCount <= 2
+    onlineDot.isHidden = !room.isDirect
 
     if room.unreadCount > 0 {
       let count = room.unreadCount

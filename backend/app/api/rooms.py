@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
@@ -86,7 +86,8 @@ async def get_room(
     db: AsyncSession = Depends(get_db),
 ) -> RoomDetailResponse:
     room = await room_service.get_room(db, room_id)
-    return room
+    response = await room_service.build_room_response(db, room, current_user.id)
+    return RoomDetailResponse(**response.model_dump())
 
 
 @router.post(
@@ -181,6 +182,8 @@ async def regenerate_invite_code(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms do not have invites")
     code = await room_service.generate_invite_code(db, room_id)
     return {"invite_code": code}
 
@@ -197,6 +200,8 @@ async def kick_member(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms are locked")
     await room_service.kick_member(db, room_id, current_user.id, user_id)
 
 
@@ -211,4 +216,6 @@ async def make_admin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    if await room_service.is_direct_room(db, room_id):
+        raise HTTPException(status_code=403, detail="Direct rooms are locked")
     await room_service.transfer_admin(db, room_id, current_user.id, user_id)

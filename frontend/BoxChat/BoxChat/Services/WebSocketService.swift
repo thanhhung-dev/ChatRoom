@@ -1,4 +1,6 @@
 import Foundation
+import UIKit
+import UserNotifications
 
 protocol WebSocketServiceDelegate: AnyObject {
     func webSocketDidConnect()
@@ -78,6 +80,7 @@ final class WebSocketService: NSObject {
         guard !isConnected, !isConnecting else { return }
         
         shouldReconnect = true
+        AppNotificationService.shared.configure()
         if let token = TokenManager.shared.accessToken, isTokenExpired(token) {
             print("🔑 WS: token expired, refreshing before connect...")
             NetworkManager.shared.refreshAccessToken { [weak self] success in
@@ -212,6 +215,7 @@ final class WebSocketService: NSObject {
             notifyDelegates { $0.webSocketDidConnect() }
             
         default:
+            AppNotificationService.shared.handleWebSocketEvent(type: type, payload: payload)
             notifyDelegates { $0.webSocketDidReceiveEvent(type: type, payload: payload) }
         }
     }

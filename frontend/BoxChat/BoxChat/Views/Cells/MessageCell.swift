@@ -41,6 +41,11 @@ final class MessageCell: UITableViewCell {
     reactionLabel.isHidden = true
   }
 
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    updateDynamicLayerColors()
+  }
+
   private func setupViews() {
     backgroundColor = .clear
     contentView.backgroundColor = .clear
@@ -58,7 +63,7 @@ final class MessageCell: UITableViewCell {
 
     bubbleView.layer.cornerRadius = 18
     bubbleView.layer.cornerCurve = .continuous
-    bubbleView.layer.shadowColor = UIColor.black.cgColor
+    updateDynamicLayerColors()
     bubbleView.layer.shadowOpacity = 0.06
     bubbleView.layer.shadowRadius = 7
     bubbleView.layer.shadowOffset = CGSize(width: 0, height: 3)
@@ -73,7 +78,7 @@ final class MessageCell: UITableViewCell {
     messageLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
     messageLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-    messageImageView.contentMode = .scaleAspectFill
+    messageImageView.contentMode = .scaleAspectFit
     messageImageView.clipsToBounds = true
     messageImageView.layer.cornerRadius = 14
     messageImageView.layer.cornerCurve = .continuous
@@ -175,6 +180,10 @@ final class MessageCell: UITableViewCell {
     ])
   }
 
+  private func updateDynamicLayerColors() {
+    bubbleView.layer.shadowColor = UIColor.label.withAlphaComponent(0.14).cgColor
+  }
+
   func configure(with message: Message, isMe: Bool, reaction: String?, localImage: UIImage?) {
     nameLabel.text = isMe ? "" : (message.displayName ?? message.username ?? "Member")
     nameLabel.isHidden = isMe
@@ -184,7 +193,10 @@ final class MessageCell: UITableViewCell {
     leadingConstraint.isActive = !isMe
     trailingConstraint.isActive = isMe
 
-    bubbleView.backgroundColor = isMe ? .systemBlue : .secondarySystemGroupedBackground
+    let senderColor = avatarColor(from: message.displayName ?? message.username ?? "?")
+    bubbleView.backgroundColor = isMe ? .systemBlue : senderColor.withAlphaComponent(0.14)
+    avatarView.backgroundColor = senderColor
+    nameLabel.textColor = senderColor
     messageLabel.textColor = isMe ? .white : .label
     fileNameLabel.textColor = isMe ? .white : .label
     fileMetaLabel.textColor = isMe ? UIColor.white.withAlphaComponent(0.78) : .secondaryLabel
@@ -220,6 +232,12 @@ final class MessageCell: UITableViewCell {
     let isImage = ["jpg", "jpeg", "png", "gif", "heic"].contains { ext in
       lowerUrl.hasSuffix(".\(ext)") || lowerName.hasSuffix(".\(ext)")
     }
+    let isVideo = ["mp4", "mov", "m4v"].contains { ext in
+      lowerUrl.hasSuffix(".\(ext)") || lowerName.hasSuffix(".\(ext)")
+    }
+    let isAudio = ["m4a", "aac", "mp3", "wav"].contains { ext in
+      lowerUrl.hasSuffix(".\(ext)") || lowerName.hasSuffix(".\(ext)")
+    }
 
     if isImage, let url = Constants.mediaURL(from: message.fileUrl) {
       messageImageView.isHidden = false
@@ -239,8 +257,9 @@ final class MessageCell: UITableViewCell {
 
     if message.messageType == "file" || message.fileName != nil {
       fileCardView.isHidden = false
+      fileIconView.image = UIImage(systemName: isVideo ? "play.rectangle.fill" : (isAudio ? "waveform" : "doc.text.fill"))
       fileNameLabel.text = message.fileName ?? "Tệp đính kèm"
-      fileMetaLabel.text = "Tệp đã chọn"
+      fileMetaLabel.text = isVideo ? "Video" : (isAudio ? "Tin nhắn thoại" : "Tệp đã chọn")
     }
   }
 
@@ -254,6 +273,14 @@ final class MessageCell: UITableViewCell {
     let parts = name.split(separator: " ")
     let value = parts.prefix(2).compactMap { $0.first }.map(String.init).joined()
     return value.isEmpty ? "?" : value.uppercased()
+  }
+
+  private func avatarColor(from name: String) -> UIColor {
+    let colors: [UIColor] = [
+      .systemBlue, .systemTeal, .systemIndigo, .systemPink, .systemGreen, .systemOrange,
+    ]
+    let total = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+    return colors[abs(total) % colors.count]
   }
 
   private func shortTime(from isoString: String) -> String {

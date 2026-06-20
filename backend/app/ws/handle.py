@@ -16,6 +16,8 @@ from app.models.user import User
 from app.services.presence_services import PresenceService
 from app.ws.manager import manager
 from app.ws.protocol import (
+    CallEventPayload,
+    CallPayload,
     ClientEvent,
     ConnectedPayload,
     JoinRoomPayload,
@@ -31,6 +33,7 @@ from app.ws.protocol import (
     TypingPayload,
     UnreadUpdatePayload,
     UserLeftPayload,
+    WebRTCPayload,
     build_error_message,
     build_server_message,
     parse_client_message,
@@ -269,6 +272,40 @@ async def handle_mark_read(
         ),
     )
 
+
+async def handle_call_event(
+    user: User,
+    event_type: ClientEvent,
+    payload: CallPayload | WebRTCPayload,
+    db: AsyncSession,
+) -> None:
+    member = await _is_member(user.id, payload.room_id, db)
+    if not member:
+        await manager.send_personal(
+            user.id,
+            build_error_message("NOT_MEMBER", "Cannot call in a room you're not in"),
+        )
+        return
+
+    is_video = payload.is_video if isinstance(payload, CallPayload) else False
+    data = payload.data if isinstance(payload, WebRTCPayload) else None
+    await manager.broadcast(
+        payload.room_id,
+        build_server_message(
+            ServerEvent.CALL_EVENT,
+            CallEventPayload(
+                room_id=payload.room_id,
+                call_id=payload.call_id,
+                sender_id=user.id,
+                sender_username=user.username,
+                action=event_type.value,
+                is_video=is_video,
+                data=data,
+            ),
+        ),
+        exclude_user=user.id,
+    )
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -281,6 +318,7 @@ async def websocket_endpoint(
         return
 
     await websocket.accept()
+    manager.connect_personal(user.id, websocket)
     await websocket.send_text(json.dumps({
         "type": "connected",
         "payload": {"user_id": user.id, "username": user.username}
@@ -323,6 +361,17 @@ async def websocket_endpoint(
                 case ClientEvent.MARK_READ:
                     await handle_mark_read(user, payload, db) 
 
+                case (
+                    ClientEvent.CALL_INVITE
+                    | ClientEvent.CALL_ACCEPT
+                    | ClientEvent.CALL_REJECT
+                    | ClientEvent.CALL_END
+                    | ClientEvent.WEBRTC_OFFER
+                    | ClientEvent.WEBRTC_ANSWER
+                    | ClientEvent.ICE_CANDIDATE
+                ):
+                    await handle_call_event(user, event_type, payload, db)  # type: ignore[arg-type]
+
                 case ClientEvent.PING:
                     await websocket.send_text(
                         build_server_message(ServerEvent.PONG, PongPayload())
@@ -334,4 +383,5 @@ async def websocket_endpoint(
         logger.exception("Unexpected WS error for user=%s: %s", user.id, exc)
     finally:
         manager.disconnect_all(user.id)
+        manager.disconnect_personal(user.id)
         await presence.user_disconnected(user.id, user.username)

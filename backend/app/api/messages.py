@@ -37,7 +37,7 @@ async def get_messages(
     status_code=status.HTTP_201_CREATED,
     summary="Gửi tin nhắn file",
     description="Upload file (multipart/form-data) và tạo một tin nhắn dạng file trong phòng. "
-    "File tối đa 10MB; loại file được giới hạn (ảnh/tài liệu).",
+    "File tối đa 100MB; loại file được giới hạn (ảnh/video/audio/tài liệu).",
 )
 async def upload_file(
     room_id: int,

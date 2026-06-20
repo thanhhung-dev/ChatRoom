@@ -24,7 +24,7 @@ final class GroupInfoViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     view.backgroundColor = .systemBackground
-    navigationItem.title = "Thông tin nhóm"
+    navigationItem.title = room.isDirect ? "Thông tin riêng tư" : "Thông tin nhóm"
     navigationItem.largeTitleDisplayMode = .never
     navigationItem.leftBarButtonItem = UIBarButtonItem(
       image: UIImage(systemName: "chevron.left"),
@@ -32,7 +32,7 @@ final class GroupInfoViewController: UIViewController {
       target: self,
       action: #selector(didTapBack)
     )
-    navigationItem.rightBarButtonItem = UIBarButtonItem(
+    navigationItem.rightBarButtonItem = room.isDirect ? nil : UIBarButtonItem(
       title: "Sửa", style: .done, target: self, action: #selector(didTapEdit))
     setupLayout()
     reloadData()
@@ -76,15 +76,18 @@ final class GroupInfoViewController: UIViewController {
 
   private func reloadData() {
     messages = ChatLocalStore.shared.loadMessages(roomId: room.id)
-    avatarView.image = UIImage(systemName: "person.3.fill")
-    if let url = Constants.mediaURL(from: room.avatarUrl) {
+    avatarView.image = UIImage(systemName: room.isDirect ? "person.crop.circle.fill" : "person.3.fill")
+    if let url = Constants.mediaURL(from: room.displayAvatarURL) {
       URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
         guard let self, let data, let image = UIImage(data: data) else { return }
         DispatchQueue.main.async { self.avatarView.image = image }
       }.resume()
     }
-    titleLabel.text = room.name
-    memberLabel.text = "\(memberCount) thành viên"
+    navigationItem.title = room.isDirect ? "Thông tin riêng tư" : "Thông tin nhóm"
+    navigationItem.rightBarButtonItem = room.isDirect ? nil : UIBarButtonItem(
+      title: "Sửa", style: .done, target: self, action: #selector(didTapEdit))
+    titleLabel.text = room.displayName
+    memberLabel.text = room.isDirect ? "Tin nhắn riêng tư" : "\(memberCount) thành viên"
     rebuildOptions()
   }
 
@@ -163,9 +166,8 @@ final class GroupInfoViewController: UIViewController {
     stack.spacing = 16
 
     let actions: [(String, String, Selector)] = [
-      ("phone.fill", "Gọi nhóm", #selector(didTapStub)),
+      ("phone.fill", room.isDirect ? "Gọi" : "Gọi nhóm", #selector(didTapStub)),
       ("magnifyingglass", "Tìm kiếm", #selector(didTapSearch)),
-      ("plus", "Thêm", #selector(didTapStub)),
       ("bell.fill", "Thông báo", #selector(didTapNotification)),
     ]
 
@@ -217,23 +219,31 @@ final class GroupInfoViewController: UIViewController {
       icon: "link", title: "Link", subtitle: "\(linkMessages.count) link",
       action: #selector(didTapLinks))
     addSeparator()
-    addOption(
-      icon: "person.2.fill", title: "Thành viên", subtitle: "\(memberCount) thành viên",
-      action: #selector(didTapMembers))
-    addSeparator()
-    addOption(
-      icon: "doc.on.doc.fill", title: "Sao chép mã mời",
-      subtitle: room.inviteCode.isEmpty ? "Chưa có mã" : room.inviteCode,
-      action: #selector(didTapCopyInvite))
+    if !room.isDirect {
+      addOption(
+        icon: "person.2.fill", title: "Thành viên", subtitle: "\(memberCount) thành viên",
+        action: #selector(didTapMembers))
+      addSeparator()
+      addOption(
+        icon: "qrcode", title: "Mã QR mời nhóm", subtitle: "Quét để tham gia nhóm",
+        action: #selector(didTapInviteQR))
+      addSeparator()
+      addOption(
+        icon: "link.circle.fill", title: "Sao chép link mời",
+        subtitle: room.inviteCode.isEmpty ? "Chưa có link" : Constants.inviteLink(code: room.inviteCode),
+        action: #selector(didTapCopyInvite))
+    }
     addSeparator()
     addOption(
       icon: notificationsEnabled ? "bell.fill" : "bell.slash.fill", title: "Thông báo",
       subtitle: notificationsEnabled ? "Đang bật" : "Đang tắt",
       action: #selector(didTapNotification))
     addSeparator()
-    addOption(
-      icon: "rectangle.portrait.and.arrow.right", title: "Rời khỏi nhóm", subtitle: nil,
-      destructive: true, action: #selector(didTapLeave))
+    if !room.isDirect {
+      addOption(
+        icon: "rectangle.portrait.and.arrow.right", title: "Rời khỏi nhóm", subtitle: nil,
+        destructive: true, action: #selector(didTapLeave))
+    }
   }
 
   private func addOption(
@@ -331,8 +341,21 @@ final class GroupInfoViewController: UIViewController {
   }
 
   @objc private func didTapCopyInvite() {
-    UIPasteboard.general.string = room.inviteCode
-    showToast("Đã sao chép mã mời")
+    UIPasteboard.general.string = Constants.inviteLink(code: room.inviteCode)
+    showToast("Đã sao chép link mời")
+  }
+
+  @objc private func didTapInviteQR() {
+    guard !room.inviteCode.isEmpty else {
+      showToast("Nhóm này chưa có mã mời")
+      return
+    }
+    let link = Constants.inviteLink(code: room.inviteCode)
+    let qr = QRCodeViewController(
+      payload: link,
+      heading: "Mã QR mời nhóm",
+      detail: "Người khác quét mã này để tham gia \(room.displayName).")
+    navigationController?.pushViewController(qr, animated: true)
   }
 
   @objc private func didTapNotification() {

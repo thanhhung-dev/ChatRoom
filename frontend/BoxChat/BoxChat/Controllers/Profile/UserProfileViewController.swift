@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 
 class UserProfileViewController: UIViewController {
 
@@ -65,6 +66,26 @@ class UserProfileViewController: UIViewController {
         return btn
     }()
 
+    private let notificationButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("Bật thông báo tin nhắn", for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        btn.backgroundColor = .systemGreen.withAlphaComponent(0.08)
+        btn.setTitleColor(.systemGreen, for: .normal)
+        btn.layer.cornerRadius = 14
+        return btn
+    }()
+
+    private let qrButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("Mã QR kết bạn", for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        btn.backgroundColor = .systemBlue.withAlphaComponent(0.08)
+        btn.setTitleColor(.systemBlue, for: .normal)
+        btn.layer.cornerRadius = 14
+        return btn
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Hồ Sơ"
@@ -72,6 +93,11 @@ class UserProfileViewController: UIViewController {
         view.backgroundColor = .systemGroupedBackground
         setupLayout()
         configureProfile()
+        avatarImageView.isUserInteractionEnabled = true
+        avatarImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapAvatar)))
+        qrButton.addTarget(self, action: #selector(didTapQR), for: .touchUpInside)
+        changePasswordButton.addTarget(self, action: #selector(didTapChangePassword), for: .touchUpInside)
+        notificationButton.addTarget(self, action: #selector(didTapNotifications), for: .touchUpInside)
         logoutButton.addTarget(self, action: #selector(didTapLogout), for: .touchUpInside)
     }
 
@@ -81,6 +107,8 @@ class UserProfileViewController: UIViewController {
         cardView.addSubview(displayNameLabel)
         cardView.addSubview(usernameLabel)
         view.addSubview(actionStackView)
+        actionStackView.addArrangedSubview(qrButton)
+        actionStackView.addArrangedSubview(notificationButton)
         actionStackView.addArrangedSubview(changePasswordButton)
         actionStackView.addArrangedSubview(logoutButton)
 
@@ -111,6 +139,8 @@ class UserProfileViewController: UIViewController {
             actionStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             actionStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 
+            qrButton.heightAnchor.constraint(equalToConstant: 48),
+            notificationButton.heightAnchor.constraint(equalToConstant: 48),
             changePasswordButton.heightAnchor.constraint(equalToConstant: 48),
             logoutButton.heightAnchor.constraint(equalToConstant: 48)
         ])
@@ -120,7 +150,7 @@ class UserProfileViewController: UIViewController {
         guard let currentUser = TokenManager.shared.currentUser else { return }
         displayNameLabel.text = currentUser.username
         usernameLabel.text = "@\(currentUser.username)"
-        if let avatarString = currentUser.avatarUrl, let url = URL(string: avatarString) {
+        if let url = Constants.mediaURL(from: currentUser.avatarUrl) {
             URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
                 if let data = data, let image = UIImage(data: data) {
                     DispatchQueue.main.async { self?.avatarImageView.image = image }
@@ -138,5 +168,62 @@ class UserProfileViewController: UIViewController {
             NotificationCenter.default.post(name: .didLogoutRequired, object: nil)
         })
         present(alert, animated: true)
+    }
+
+    @objc private func didTapChangePassword() {
+        let reset = ResetPasswordViewController()
+        navigationController?.pushViewController(reset, animated: true)
+    }
+
+    @objc private func didTapNotifications() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
+            granted, _ in
+            DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: granted ? "Đã bật thông báo" : "Chưa bật được thông báo",
+                    message: granted ? "Bạn sẽ nhận thông báo khi có tin nhắn mới." : "Bạn có thể bật lại trong Settings của iOS.",
+                    preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
+    @objc private func didTapQR() {
+        guard let currentUser = TokenManager.shared.currentUser else { return }
+        let displayName = ((currentUser.displayName?.isEmpty) != nil) ? currentUser.username : currentUser.displayName
+        let qr = QRCodeViewController(
+            payload: Constants.friendLink(username: currentUser.username),
+            heading: "Mã QR kết bạn",
+            detail: "Người khác quét mã này để gửi lời mời kết bạn tới \(displayName).")
+        navigationController?.pushViewController(qr, animated: true)
+    }
+
+    @objc private func didTapAvatar() {
+        let picker = UIImagePickerController()
+        picker.delegate = self
+        picker.sourceType = .photoLibrary
+        picker.allowsEditing = true
+        present(picker, animated: true)
+    }
+}
+
+extension UserProfileViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerController(
+        _ picker: UIImagePickerController,
+        didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+    ) {
+        picker.dismiss(animated: true)
+        guard let image = (info[.editedImage] ?? info[.originalImage]) as? UIImage,
+              let data = image.jpegData(compressionQuality: 0.78) else { return }
+        avatarImageView.image = image
+        NetworkManager.shared.uploadUserAvatar(imageData: data) { result in
+            DispatchQueue.main.async {
+                if case .success(let user) = result {
+                    TokenManager.shared.currentUser = user
+                    self.configureProfile()
+                }
+            }
+        }
     }
 }
