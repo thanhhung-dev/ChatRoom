@@ -20,6 +20,13 @@ class ClientEvent(str, Enum):
     STOP_TYPING   = "stop_typing"
     SYNC_MESSAGES = "sync_messages"
     MARK_READ     = "mark_read"
+    CALL_INVITE   = "call_invite"
+    CALL_ACCEPT   = "call_accept"
+    CALL_REJECT   = "call_reject"
+    CALL_END      = "call_end"
+    WEBRTC_OFFER  = "webrtc_offer"
+    WEBRTC_ANSWER = "webrtc_answer"
+    ICE_CANDIDATE = "ice_candidate"
     PING          = "ping"
 
 
@@ -34,6 +41,7 @@ class ServerEvent(str, Enum):
     PONG              = "pong"
     ERROR             = "error"
     ONLINE_MEMBERS    = "online_members"
+    CALL_EVENT        = "call_event"
 
 
 
@@ -80,6 +88,18 @@ class MarkReadPayload(BaseModel):
 
 class PingPayload(BaseModel):
     pass
+
+
+class CallPayload(BaseModel):
+    room_id: int
+    call_id: str
+    is_video: bool = False
+
+
+class WebRTCPayload(BaseModel):
+    room_id: int
+    call_id: str
+    data: dict[str, Any]
 
 
 
@@ -145,6 +165,16 @@ class OnlineMembersPayload(BaseModel):
     members: list[dict[str, Any]]   # [{user_id, username, avatar_url?}]
 
 
+class CallEventPayload(BaseModel):
+    room_id: int
+    call_id: str
+    sender_id: int
+    sender_username: str
+    action: str
+    is_video: bool = False
+    data: dict[str, Any] | None = None
+
+
 
 _CLIENT_PAYLOAD_MAP: dict[ClientEvent, type[BaseModel]] = {
     ClientEvent.JOIN_ROOM:     JoinRoomPayload,
@@ -154,6 +184,13 @@ _CLIENT_PAYLOAD_MAP: dict[ClientEvent, type[BaseModel]] = {
     ClientEvent.STOP_TYPING:   TypingPayload,
     ClientEvent.SYNC_MESSAGES: SyncMessagesPayload,
     ClientEvent.MARK_READ:     MarkReadPayload,
+    ClientEvent.CALL_INVITE:   CallPayload,
+    ClientEvent.CALL_ACCEPT:   CallPayload,
+    ClientEvent.CALL_REJECT:   CallPayload,
+    ClientEvent.CALL_END:      CallPayload,
+    ClientEvent.WEBRTC_OFFER:  WebRTCPayload,
+    ClientEvent.WEBRTC_ANSWER: WebRTCPayload,
+    ClientEvent.ICE_CANDIDATE: WebRTCPayload,
     ClientEvent.PING:          PingPayload,
 }
 

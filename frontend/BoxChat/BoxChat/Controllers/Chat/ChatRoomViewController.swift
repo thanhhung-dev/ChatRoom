@@ -1,6 +1,15 @@
+import AVFoundation
+import AVKit
 import CoreML
+import QuickLook
 import UIKit
 import UniformTypeIdentifiers
+
+private enum MediaKind {
+  case image
+  case video
+  case audio
+}
 
 final class ChatRoomViewController: UIViewController {
   private let room: Room
@@ -9,6 +18,9 @@ final class ChatRoomViewController: UIViewController {
   private var localImagesByMessageId: [Int: UIImage] = [:]
   private var localIdSeed = -1
   private var isTyping = false
+  private var audioRecorder: AVAudioRecorder?
+  private var recordingURL: URL?
+  private var previewFileURL: URL?
 
   private let smartReplyEngine = SmartReplyEngine()
 
@@ -48,7 +60,7 @@ final class ChatRoomViewController: UIViewController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = UIColor(red: 0.94, green: 0.96, blue: 0.98, alpha: 1.0)
+    view.backgroundColor = .systemGroupedBackground
 
     navigationController?.setNavigationBarHidden(true, animated: false)
 
@@ -75,6 +87,8 @@ final class ChatRoomViewController: UIViewController {
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
     navigationController?.setNavigationBarHidden(true, animated: animated)
+    navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+    navigationController?.interactivePopGestureRecognizer?.delegate = nil
     joinWebSocketRoom()
   }
 
@@ -85,16 +99,21 @@ final class ChatRoomViewController: UIViewController {
     leaveWebSocketRoom()
   }
 
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    topBarView.layer.shadowColor = UIColor.separator.cgColor
+  }
+
   deinit {
     NotificationCenter.default.removeObserver(self)
   }
 
   private func setupCustomTopBar() {
-    topBarView.backgroundColor = .white
+    topBarView.backgroundColor = .systemBackground
     topBarView.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(topBarView)
 
-    topBarView.layer.shadowColor = UIColor.black.cgColor
+    topBarView.layer.shadowColor = UIColor.separator.cgColor
     topBarView.layer.shadowOffset = CGSize(width: 0, height: 0.5)
     topBarView.layer.shadowOpacity = 0.08
     topBarView.layer.shadowRadius = 0
@@ -105,11 +124,11 @@ final class ChatRoomViewController: UIViewController {
     backButton.translatesAutoresizingMaskIntoConstraints = false
     topBarView.addSubview(backButton)
 
-    titleLabel.text = room.name
+    titleLabel.text = room.displayName
     titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
-    titleLabel.textColor = .black
+    titleLabel.textColor = .label
 
-    subtitleLabel.text = "\(max(room.memberCount, 1)) thành viên"
+    subtitleLabel.text = room.isDirect ? "Tin nhắn riêng tư" : "\(max(room.memberCount, 1)) thành viên"
     subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
     subtitleLabel.textColor = .systemGray
 
@@ -122,6 +141,7 @@ final class ChatRoomViewController: UIViewController {
 
     callButton.setImage(UIImage(systemName: "phone"), for: .normal)
     callButton.tintColor = .systemBlue
+    callButton.addTarget(self, action: #selector(didTapCall), for: .touchUpInside)
     callButton.translatesAutoresizingMaskIntoConstraints = false
     topBarView.addSubview(callButton)
 
@@ -188,7 +208,7 @@ final class ChatRoomViewController: UIViewController {
   private func setupInputArea() {
     view.addSubview(inputContainerView)
     inputContainerView.translatesAutoresizingMaskIntoConstraints = false
-    inputContainerView.backgroundColor = .white
+    inputContainerView.backgroundColor = .systemBackground
 
     smartReplyStack.axis = .horizontal
     smartReplyStack.spacing = 8
@@ -196,7 +216,7 @@ final class ChatRoomViewController: UIViewController {
     smartReplyStack.translatesAutoresizingMaskIntoConstraints = false
     inputContainerView.addSubview(smartReplyStack)
 
-    pillContainerView.backgroundColor = UIColor(red: 0.95, green: 0.96, blue: 0.97, alpha: 1.0)
+    pillContainerView.backgroundColor = .secondarySystemBackground
     pillContainerView.layer.cornerRadius = 20
     pillContainerView.translatesAutoresizingMaskIntoConstraints = false
     inputContainerView.addSubview(pillContainerView)
@@ -214,6 +234,7 @@ final class ChatRoomViewController: UIViewController {
     inputContainerView.addSubview(sendButton)
 
     messageTextView.backgroundColor = .clear
+    messageTextView.textColor = .label
     messageTextView.font = .systemFont(ofSize: 15)
     messageTextView.textContainerInset = UIEdgeInsets(top: 9, left: 4, bottom: 9, right: 4)
     messageTextView.isScrollEnabled = false
@@ -326,13 +347,24 @@ final class ChatRoomViewController: UIViewController {
   }
 
   private func setupGestures() {
-    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-    tapGesture.cancelsTouchesInView = false
-    tableView.addGestureRecognizer(tapGesture)
+    let viewTapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+    viewTapGesture.cancelsTouchesInView = false
+    viewTapGesture.delegate = self
+    view.addGestureRecognizer(viewTapGesture)
+
+    let tableTapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+    tableTapGesture.cancelsTouchesInView = false
+    tableTapGesture.delegate = self
+    tableView.addGestureRecognizer(tableTapGesture)
 
     let longPress = UILongPressGestureRecognizer(
       target: self, action: #selector(handleMessageLongPress(_:)))
     tableView.addGestureRecognizer(longPress)
+
+    let edgePan = UIScreenEdgePanGestureRecognizer(
+      target: self, action: #selector(handleBackEdgePan(_:)))
+    edgePan.edges = .left
+    view.addGestureRecognizer(edgePan)
   }
 
   private func configureIconButton(_ button: UIButton, systemName: String, action: Selector) {
@@ -422,7 +454,11 @@ final class ChatRoomViewController: UIViewController {
   @objc private func didTapAttach() {
     let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
     sheet.addAction(
+      UIAlertAction(title: "Chụp ảnh", style: .default) { [weak self] _ in self?.openCamera() })
+    sheet.addAction(
       UIAlertAction(title: "Gửi ảnh", style: .default) { [weak self] _ in self?.openPhotoPicker() })
+    sheet.addAction(
+      UIAlertAction(title: "Gửi video", style: .default) { [weak self] _ in self?.openVideoPicker() })
     sheet.addAction(
       UIAlertAction(title: "Gửi file", style: .default) { [weak self] _ in self?.openFilePicker() })
     sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
@@ -439,17 +475,141 @@ final class ChatRoomViewController: UIViewController {
   }
 
   @objc private func didTapMic() {
-    showNotice("Ghi âm sẽ cần backend lưu media. Hiện FE chỉ hỗ trợ chọn ảnh/file local.")
+    if audioRecorder?.isRecording == true {
+      finishVoiceRecording()
+    } else {
+      startVoiceRecording()
+    }
+  }
+
+  private func startVoiceRecording() {
+    AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        guard granted else {
+          self.showNotice("Bạn cần cấp quyền micro để gửi tin nhắn thoại.")
+          return
+        }
+        do {
+          try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default)
+          try AVAudioSession.sharedInstance().setActive(true)
+          let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voice_\(Int(Date().timeIntervalSince1970)).m4a")
+          let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 44_100,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+          ]
+          self.recordingURL = url
+          self.audioRecorder = try AVAudioRecorder(url: url, settings: settings)
+          self.audioRecorder?.record()
+          self.micButton.tintColor = .systemRed
+          self.showNotice("Đang ghi âm. Bấm micro lần nữa để gửi.")
+        } catch {
+          self.showNotice("Không thể bắt đầu ghi âm.")
+        }
+      }
+    }
+  }
+
+  private func finishVoiceRecording() {
+    audioRecorder?.stop()
+    audioRecorder = nil
+    micButton.tintColor = .secondaryLabel
+    guard let url = recordingURL else { return }
+    guard let data = try? Data(contentsOf: url) else { return }
+    let fileName = url.lastPathComponent
+    let id = nextLocalId()
+    let persistedUrl =
+      ChatLocalStore.shared.persistAttachment(data, fileName: fileName)?.absoluteString
+      ?? url.absoluteString
+    let message = makeLocalMessage(
+      id: id,
+      content: "Tin nhắn thoại",
+      type: "file",
+      fileUrl: persistedUrl,
+      fileName: fileName,
+      status: "local"
+    )
+    appendMessage(message)
+    NetworkManager.shared.uploadFile(
+      roomId: room.id, fileData: data, fileName: fileName, mimeType: "audio/mp4"
+    ) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        switch result {
+        case .success(let saved):
+          self.replaceLocalMessage(id, with: saved)
+        case .failure(let error):
+          self.markLocalMessageFailed(id, error: error)
+        }
+      }
+    }
   }
 
   @objc private func didTapInfo() {
     navigationController?.pushViewController(GroupInfoViewController(room: room), animated: true)
   }
 
+  @objc private func didTapCall() {
+    let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+    sheet.addAction(UIAlertAction(title: "Gọi thoại", style: .default) { [weak self] _ in
+      self?.presentCall(video: false)
+    })
+    sheet.addAction(UIAlertAction(title: "Gọi video", style: .default) { [weak self] _ in
+      self?.presentCall(video: true)
+    })
+    sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+    if let popover = sheet.popoverPresentationController {
+      popover.sourceView = callButton
+      popover.sourceRect = callButton.bounds
+    }
+    present(sheet, animated: true)
+  }
+
+  private func presentCall(video: Bool) {
+    let callId = UUID().uuidString
+    WebSocketService.shared.sendEvent(type: "call_invite", payload: [
+      "room_id": room.id,
+      "call_id": callId,
+      "is_video": video,
+    ])
+    let call = CallViewController(
+      roomName: room.displayName, isVideo: video, callId: callId, roomId: room.id)
+    call.modalPresentationStyle = .fullScreen
+    present(call, animated: true)
+  }
+
   private func openPhotoPicker() {
     let picker = UIImagePickerController()
     picker.delegate = self
     picker.sourceType = .photoLibrary
+    picker.mediaTypes = [UTType.image.identifier]
+    picker.allowsEditing = false
+    present(picker, animated: true)
+  }
+
+  private func openCamera() {
+    guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+      showNotice("Thiết bị này không hỗ trợ camera.")
+      return
+    }
+    let picker = UIImagePickerController()
+    picker.delegate = self
+    picker.sourceType = .camera
+    picker.mediaTypes = [UTType.image.identifier]
+    picker.cameraCaptureMode = .photo
+    picker.allowsEditing = false
+    present(picker, animated: true)
+  }
+
+  private func openVideoPicker() {
+    let picker = UIImagePickerController()
+    picker.delegate = self
+    picker.sourceType = .photoLibrary
+    picker.mediaTypes = [UTType.movie.identifier]
+    picker.videoQuality = .typeMedium
     picker.allowsEditing = false
     present(picker, animated: true)
   }
@@ -499,6 +659,14 @@ final class ChatRoomViewController: UIViewController {
     tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
   }
 
+  private func markLocalMessageFailed(_ id: Int, error: Error) {
+    guard let index = messages.firstIndex(where: { $0.id == id }) else { return }
+    messages[index].status = "failed"
+    persistLocalChat()
+    tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
+    showNotice(error.localizedDescription)
+  }
+
   private func replaceLocalMessage(_ id: Int, with saved: Message) {
     if let index = messages.firstIndex(where: { $0.id == id }) {
       messages[index] = saved
@@ -539,7 +707,7 @@ final class ChatRoomViewController: UIViewController {
       button.setTitle(text, for: .normal)
       button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
       button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
-      button.backgroundColor = UIColor(red: 0.92, green: 0.94, blue: 0.97, alpha: 1.0)
+      button.backgroundColor = .secondarySystemGroupedBackground
       button.setTitleColor(.systemBlue, for: .normal)
       button.layer.cornerRadius = 14
       button.addAction(
@@ -552,12 +720,14 @@ final class ChatRoomViewController: UIViewController {
   }
 
   private func showEmojiSheet(handler: @escaping (String) -> Void) {
-    let sheet = UIAlertController(title: "Cảm xúc", message: nil, preferredStyle: .actionSheet)
-    ["👍", "❤️", "😂", "🔥", "👏", "😮"].forEach { emoji in
-      sheet.addAction(UIAlertAction(title: emoji, style: .default) { _ in handler(emoji) })
+    let picker = EmojiPickerViewController()
+    picker.onSelect = handler
+    let nav = UINavigationController(rootViewController: picker)
+    if let sheet = nav.sheetPresentationController {
+      sheet.detents = [.medium(), .large()]
+      sheet.prefersGrabberVisible = true
     }
-    sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-    present(sheet, animated: true)
+    present(nav, animated: true)
   }
 
   @objc private func handleMessageLongPress(_ recognizer: UILongPressGestureRecognizer) {
@@ -607,8 +777,127 @@ final class ChatRoomViewController: UIViewController {
     present(alert, animated: true)
   }
 
+  private func mediaKind(for message: Message) -> MediaKind? {
+    let name = (message.fileName ?? message.fileUrl ?? "").lowercased()
+    if ["jpg", "jpeg", "png", "gif", "heic", "heif", "webp"].contains(where: {
+      name.hasSuffix(".\($0)")
+    }) {
+      return .image
+    }
+    if ["mp4", "mov", "m4v", "webm"].contains(where: { name.hasSuffix(".\($0)") }) {
+      return .video
+    }
+    if ["m4a", "aac", "mp3", "wav"].contains(where: { name.hasSuffix(".\($0)") }) {
+      return .audio
+    }
+    return nil
+  }
+
+  private func playMedia(from url: URL) {
+    let player = AVPlayer(url: url)
+    let controller = AVPlayerViewController()
+    controller.player = player
+    present(controller, animated: true) {
+      player.play()
+    }
+  }
+
+  private func presentImagePreview(from url: URL, fallback: UIImage?) {
+    let controller = UIViewController()
+    controller.view.backgroundColor = .black
+    let imageView = UIImageView()
+    imageView.contentMode = .scaleAspectFit
+    imageView.translatesAutoresizingMaskIntoConstraints = false
+    imageView.image = fallback
+    controller.view.addSubview(imageView)
+
+    let closeButton = UIButton(type: .system)
+    closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+    closeButton.tintColor = .white
+    closeButton.translatesAutoresizingMaskIntoConstraints = false
+    closeButton.addAction(UIAction { [weak controller] _ in
+      controller?.dismiss(animated: true)
+    }, for: .touchUpInside)
+    controller.view.addSubview(closeButton)
+
+    NSLayoutConstraint.activate([
+      imageView.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor),
+      imageView.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
+      imageView.topAnchor.constraint(equalTo: controller.view.topAnchor),
+      imageView.bottomAnchor.constraint(equalTo: controller.view.bottomAnchor),
+      closeButton.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 12),
+      closeButton.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor, constant: -16),
+      closeButton.widthAnchor.constraint(equalToConstant: 44),
+      closeButton.heightAnchor.constraint(equalToConstant: 44),
+    ])
+
+    controller.modalPresentationStyle = .fullScreen
+    present(controller, animated: true)
+
+    guard fallback == nil else { return }
+    URLSession.shared.dataTask(with: url) { data, _, _ in
+      guard let data, let image = UIImage(data: data) else { return }
+      DispatchQueue.main.async { imageView.image = image }
+    }.resume()
+  }
+
+  private func previewDocument(from url: URL, fileName: String?) {
+    if url.isFileURL {
+      presentQuickLook(url)
+      return
+    }
+
+    URLSession.shared.downloadTask(with: url) { [weak self] tempURL, _, error in
+      guard let self else { return }
+      if let error {
+        DispatchQueue.main.async { self.showNotice(error.localizedDescription) }
+        return
+      }
+      guard let tempURL else {
+        DispatchQueue.main.async { self.showNotice("Không tải được file.") }
+        return
+      }
+
+      let safeName = self.safePreviewFileName(fileName, fallbackURL: url)
+      let destination = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
+      try? FileManager.default.removeItem(at: destination)
+      do {
+        try FileManager.default.copyItem(at: tempURL, to: destination)
+        DispatchQueue.main.async { self.presentQuickLook(destination) }
+      } catch {
+        DispatchQueue.main.async { self.showNotice("Không mở được file.") }
+      }
+    }.resume()
+  }
+
+  private func presentQuickLook(_ url: URL) {
+    previewFileURL = url
+    let controller = QLPreviewController()
+    controller.dataSource = self
+    present(controller, animated: true)
+  }
+
+  private func safePreviewFileName(_ fileName: String?, fallbackURL: URL) -> String {
+    let rawName = fileName?.isEmpty == false ? fileName! : fallbackURL.lastPathComponent
+    let cleaned = rawName.replacingOccurrences(of: "/", with: "_")
+    return cleaned.isEmpty ? "attachment" : cleaned
+  }
+
+  private func firstURL(in text: String) -> URL? {
+    guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    else { return nil }
+    let range = NSRange(text.startIndex..<text.endIndex, in: text)
+    return detector.firstMatch(in: text, options: [], range: range)?.url
+  }
+
   @objc private func dismissKeyboard() {
     view.endEditing(true)
+  }
+
+  @objc private func handleBackEdgePan(_ recognizer: UIScreenEdgePanGestureRecognizer) {
+    guard recognizer.state == .ended || recognizer.state == .recognized else { return }
+    guard navigationController?.topViewController === self else { return }
+    didTapBack()
   }
 
   @objc private func keyboardWillShow(_ notification: Notification) {
@@ -647,6 +936,45 @@ extension ChatRoomViewController: UITableViewDataSource, UITableViewDelegate {
     )
     return cell
   }
+
+  func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    tableView.deselectRow(at: indexPath, animated: true)
+    let message = messages[indexPath.row]
+
+    if let link = firstURL(in: message.content) {
+      UIApplication.shared.open(link)
+      return
+    }
+
+    guard let url = Constants.mediaURL(from: message.fileUrl) else { return }
+
+    switch mediaKind(for: message) {
+    case .video, .audio:
+      playMedia(from: url)
+    case .image:
+      presentImagePreview(from: url, fallback: localImagesByMessageId[message.id])
+    case nil:
+      previewDocument(from: url, fileName: message.fileName)
+    }
+  }
+}
+
+extension ChatRoomViewController: QLPreviewControllerDataSource {
+  func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+    previewFileURL == nil ? 0 : 1
+  }
+
+  func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+    previewFileURL! as NSURL
+  }
+}
+
+extension ChatRoomViewController: UIGestureRecognizerDelegate {
+  func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+    guard gestureRecognizer is UITapGestureRecognizer else { return true }
+    guard let touchedView = touch.view else { return true }
+    return !touchedView.isDescendant(of: inputContainerView)
+  }
 }
 
 extension ChatRoomViewController: UITextViewDelegate {
@@ -672,6 +1000,10 @@ extension ChatRoomViewController: UIImagePickerControllerDelegate, UINavigationC
     didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
   ) {
     picker.dismiss(animated: true)
+    if let videoURL = info[.mediaURL] as? URL {
+      sendPickedVideo(videoURL)
+      return
+    }
     guard let image = info[.originalImage] as? UIImage else { return }
 
     let fileName = "image_\(Int(Date().timeIntervalSince1970)).jpg"
@@ -697,9 +1029,44 @@ extension ChatRoomViewController: UIImagePickerControllerDelegate, UINavigationC
           case .success(let saved):
             self.localImagesByMessageId.removeValue(forKey: id)
             self.replaceLocalMessage(id, with: saved)
-          case .failure:
-            self.markLocalMessageSent(id)
+          case .failure(let error):
+            self.markLocalMessageFailed(id, error: error)
           }
+        }
+      }
+    }
+  }
+
+  private func sendPickedVideo(_ url: URL) {
+    guard let data = try? Data(contentsOf: url) else {
+      showNotice("Không đọc được video đã chọn.")
+      return
+    }
+    let fileName = "video_\(Int(Date().timeIntervalSince1970)).mov"
+    let persistedUrl =
+      ChatLocalStore.shared.persistAttachment(data, fileName: fileName)?.absoluteString
+      ?? url.absoluteString
+    let id = nextLocalId()
+    let message = makeLocalMessage(
+      id: id,
+      content: "",
+      type: "file",
+      fileUrl: persistedUrl,
+      fileName: fileName,
+      status: "local"
+    )
+    appendMessage(message)
+
+    NetworkManager.shared.uploadFile(
+      roomId: room.id, fileData: data, fileName: fileName, mimeType: "video/quicktime"
+    ) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        switch result {
+        case .success(let saved):
+          self.replaceLocalMessage(id, with: saved)
+        case .failure(let error):
+          self.markLocalMessageFailed(id, error: error)
         }
       }
     }
@@ -741,8 +1108,8 @@ extension ChatRoomViewController: UIDocumentPickerDelegate {
           switch result {
           case .success(let saved):
             self.replaceLocalMessage(id, with: saved)
-          case .failure:
-            self.markLocalMessageSent(id)
+          case .failure(let error):
+            self.markLocalMessageFailed(id, error: error)
           }
         }
       }
@@ -778,15 +1145,62 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
       typingIndicatorLabel.text = active ? "\(username) đang soạn tin nhắn..." : nil
       typingIndicatorLabel.isHidden = !active
 
+    case "call_event":
+      handleCallEvent(payload)
+
     // FIX: server gửi "sync_response", không phải "sync_messages"
     case "sync_response":
       guard let roomId = payload["room_id"] as? Int, roomId == room.id,
         let list = payload["messages"] as? [[String: Any]]
       else { return }
-      list.compactMap { decodeMessageObject($0) }.forEach { upsertIncomingMessage($0) }
+      list.compactMap { Message.fromWebSocketPayload($0, defaultRoomId: room.id) }
+        .forEach { upsertIncomingMessage($0) }
       if let lastId = messages.last?.id {
         WebSocketService.shared.localLastMessageIds[room.id] = lastId
       }
+
+    default:
+      break
+    }
+  }
+
+  private func handleCallEvent(_ payload: [String: Any]) {
+    guard let roomId = payload["room_id"] as? Int, roomId == room.id,
+      let callId = payload["call_id"] as? String,
+      let action = payload["action"] as? String
+    else { return }
+    let isVideo = payload["is_video"] as? Bool ?? false
+    let username = payload["sender_username"] as? String ?? "Ai đó"
+
+    switch action {
+    case "call_invite":
+      let alert = UIAlertController(
+        title: isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại",
+        message: "\(username) đang gọi bạn",
+        preferredStyle: .alert)
+      alert.addAction(UIAlertAction(title: "Từ chối", style: .destructive) { _ in
+        WebSocketService.shared.sendEvent(type: "call_reject", payload: [
+          "room_id": roomId,
+          "call_id": callId,
+          "is_video": isVideo,
+        ])
+      })
+      alert.addAction(UIAlertAction(title: "Nghe", style: .default) { [weak self] _ in
+        WebSocketService.shared.sendEvent(type: "call_accept", payload: [
+          "room_id": roomId,
+          "call_id": callId,
+          "is_video": isVideo,
+        ])
+        let call = CallViewController(
+          roomName: self?.room.displayName ?? username, isVideo: isVideo, callId: callId,
+          roomId: roomId)
+        call.modalPresentationStyle = .fullScreen
+        self?.present(call, animated: true)
+      })
+      present(alert, animated: true)
+
+    case "call_reject", "call_end":
+      presentedViewController?.dismiss(animated: true)
 
     default:
       break
@@ -813,34 +1227,198 @@ extension ChatRoomViewController: WebSocketServiceDelegate {
     }
     return false
   }
-
-  private func isMessageFromCurrentUser(_ message: Message) -> Bool {
-    if message.id < 0 { return true }
-    guard let currentUser = TokenManager.shared.currentUser else { return false }
-    if message.userId == currentUser.id { return true }
-    if message.username == currentUser.username { return true }
-    if let displayName = message.displayName,
-      let currentDisplayName = currentUser.displayName,
-      displayName == currentDisplayName
-    {
-      return true
-    }
-    return false
-  }
 }
 
 private final class SmartReplyEngine {
+  private struct Intent {
+    let keywords: [String]
+    let replies: [String]
+  }
+
+  private let intents: [Intent] = [
+    Intent(
+      keywords: ["chao", "hello", "hi ", "hey", "alo"],
+      replies: ["Mình nghe đây", "Chào bạn", "Có mình đây"]),
+    Intent(
+      keywords: ["cam on", "thank", "thanks", "tks"],
+      replies: ["Không có gì", "Ok bạn", "Rất vui được giúp"]),
+    Intent(
+      keywords: ["xin loi", "sorry", "loi nhe"],
+      replies: ["Không sao đâu", "Ổn mà", "Mình hiểu"]),
+    Intent(
+      keywords: ["goi", "call", "video", "dien thoai"],
+      replies: ["Gọi mình nhé", "Mình nghe được", "Để mình gọi lại"]),
+    Intent(
+      keywords: ["anh", "hinh", "video", "file", "tep"],
+      replies: ["Gửi mình xem", "Mình xem ngay", "Ok, để mình mở"]),
+    Intent(
+      keywords: ["dia chi", "o dau", "vi tri", "location"],
+      replies: ["Gửi vị trí nhé", "Mình tới ngay", "Bạn ở đâu?"]),
+    Intent(
+      keywords: ["may gio", "luc nao", "hom nay", "ngay mai", "lich"],
+      replies: ["Mấy giờ được?", "Để mình sắp xếp", "Ok, hẹn bạn lúc đó"]),
+    Intent(
+      keywords: ["gia", "tien", "bao nhieu", "chuyen khoan"],
+      replies: ["Bao nhiêu vậy?", "Gửi mình thông tin nhé", "Ok để mình xem"]),
+    Intent(
+      keywords: ["gap", "nhanh", "urgent", "can gap"],
+      replies: ["Mình xử lý ngay", "Ok, để mình xem liền", "Đã rõ"]),
+    Intent(
+      keywords: ["dep", "tuyet", "hay", "ok", "on", "duoc"],
+      replies: ["Chuẩn đó", "Mình thích ý này", "Quá ổn"]),
+    Intent(
+      keywords: ["update", "check", "kiem tra", "xem lai"],
+      replies: ["Để tôi check", "Ok, gửi tôi xem", "Đã rõ"]),
+  ]
+
   func suggestions(for context: String?) -> [String] {
-    let lower = (context ?? "").lowercased()
-    if lower.contains("update") || lower.contains("check") {
-      return ["Để tôi check", "Ok, gửi tôi xem", "Đã rõ"]
+    let original = (context ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let normalized = normalize(original)
+
+    guard !normalized.isEmpty else {
+      return ["Ok luôn", "Mình nghe đây", "Bạn nói tiếp đi"]
     }
-    if lower.contains("đẹp") || lower.contains("tuyệt") || lower.contains("hay") {
-      return ["Chuẩn đó", "Mình thích ý này", "Quá ổn"]
+
+    var scoredReplies: [(score: Int, replies: [String])] = intents.compactMap { intent in
+      let score = intent.keywords.reduce(0) { partial, keyword in
+        partial + (normalized.contains(keyword) ? 1 : 0)
+      }
+      return score > 0 ? (score, intent.replies) : nil
     }
-    if lower.contains("?") {
-      return ["Ok để tôi xem", "Tôi trả lời sau", "Được nhé"]
+
+    if original.contains("?") || normalized.contains("khong") || normalized.contains("ko") {
+      scoredReplies.append((2, ["Được nhé", "Để mình xem", "Bạn nói rõ hơn được không?"]))
     }
-    return ["Ok luôn", "Để tôi check", "Tuyệt vời"]
+
+    let replies = scoredReplies
+      .sorted { $0.score > $1.score }
+      .flatMap { $0.replies }
+
+    return unique(replies + ["Ok luôn", "Để tôi check", "Tuyệt vời"]).prefix(3).map { $0 }
+  }
+
+  private func normalize(_ value: String) -> String {
+    value
+      .lowercased()
+      .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+  }
+
+  private func unique(_ values: [String]) -> [String] {
+    var seen = Set<String>()
+    return values.filter { seen.insert($0).inserted }
+  }
+}
+
+private final class CallViewController: UIViewController {
+  private let roomName: String
+  private let isVideo: Bool
+  private let callId: String
+  private let roomId: Int
+  private let titleLabel = UILabel()
+  private let statusLabel = UILabel()
+  private let avatarView = UILabel()
+  private let controlsStack = UIStackView()
+
+  init(roomName: String, isVideo: Bool, callId: String, roomId: Int) {
+    self.roomName = roomName
+    self.isVideo = isVideo
+    self.callId = callId
+    self.roomId = roomId
+    super.init(nibName: nil, bundle: nil)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    view.backgroundColor = UIColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
+    setupViews()
+  }
+
+  private func setupViews() {
+    avatarView.text = initials(roomName)
+    avatarView.font = .systemFont(ofSize: 42, weight: .bold)
+    avatarView.textAlignment = .center
+    avatarView.textColor = .white
+    avatarView.backgroundColor = .systemBlue
+    avatarView.layer.cornerRadius = 54
+    avatarView.clipsToBounds = true
+
+    titleLabel.text = roomName
+    titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
+    titleLabel.textColor = .white
+    titleLabel.textAlignment = .center
+
+    statusLabel.text = isVideo ? "Đang chuẩn bị gọi video..." : "Đang chuẩn bị gọi thoại..."
+    statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
+    statusLabel.textColor = .white.withAlphaComponent(0.72)
+    statusLabel.textAlignment = .center
+
+    controlsStack.axis = .horizontal
+    controlsStack.distribution = .equalSpacing
+    controlsStack.alignment = .center
+
+    let controls: [(String, UIColor, Selector)] = [
+      ("mic.fill", .white.withAlphaComponent(0.16), #selector(didTapStubControl)),
+      (isVideo ? "video.fill" : "video.slash.fill", .white.withAlphaComponent(0.16), #selector(didTapStubControl)),
+      ("speaker.wave.2.fill", .white.withAlphaComponent(0.16), #selector(didTapStubControl)),
+      ("phone.down.fill", .systemRed, #selector(didTapEnd)),
+    ]
+    controls.forEach { icon, color, selector in
+      let button = UIButton(type: .system)
+      button.setImage(UIImage(systemName: icon), for: .normal)
+      button.tintColor = .white
+      button.backgroundColor = color
+      button.layer.cornerRadius = 28
+      button.addTarget(self, action: selector, for: .touchUpInside)
+      button.widthAnchor.constraint(equalToConstant: 56).isActive = true
+      button.heightAnchor.constraint(equalToConstant: 56).isActive = true
+      controlsStack.addArrangedSubview(button)
+    }
+
+    [avatarView, titleLabel, statusLabel, controlsStack].forEach {
+      $0.translatesAutoresizingMaskIntoConstraints = false
+      view.addSubview($0)
+    }
+
+    NSLayoutConstraint.activate([
+      avatarView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      avatarView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -120),
+      avatarView.widthAnchor.constraint(equalToConstant: 108),
+      avatarView.heightAnchor.constraint(equalToConstant: 108),
+
+      titleLabel.topAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: 22),
+      titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+      titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
+
+      statusLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+      statusLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+      statusLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+
+      controlsStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 38),
+      controlsStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -38),
+      controlsStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -34),
+    ])
+  }
+
+  @objc private func didTapStubControl() {
+    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+  }
+
+  @objc private func didTapEnd() {
+    WebSocketService.shared.sendEvent(type: "call_end", payload: [
+      "room_id": roomId,
+      "call_id": callId,
+      "is_video": isVideo,
+    ])
+    dismiss(animated: true)
+  }
+
+  private func initials(_ value: String) -> String {
+    let parts = value.split(separator: " ")
+    let text = parts.prefix(2).compactMap { $0.first }.map(String.init).joined()
+    return text.isEmpty ? "B" : text.uppercased()
   }
 }

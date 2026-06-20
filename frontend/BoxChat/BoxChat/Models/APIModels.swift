@@ -61,6 +61,69 @@ struct PaginatedResponse<T: Codable>: Codable {
   }
 }
 
+struct FriendRequestModel: Codable {
+  let id: Int
+  let requester: UserResponse
+  let receiver: UserResponse
+  let status: String
+  let createdAt: String
+
+  enum CodingKeys: String, CodingKey {
+    case id, requester, receiver, status
+    case createdAt = "created_at"
+  }
+}
+
+struct FriendshipModel: Codable {
+  let id: Int
+  let friend: UserResponse
+  let room: Room?
+  let createdAt: String
+
+  enum CodingKeys: String, CodingKey {
+    case id, friend, room
+    case createdAt = "created_at"
+  }
+}
+
+struct FeedPostModel: Codable {
+  let id: Int
+  let user: UserResponse
+  let content: String?
+  let mediaUrl: String?
+  let mediaName: String?
+  let mediaType: String?
+  let reactionCount: Int
+  let commentCount: Int
+  let myReaction: String?
+  let createdAt: String
+
+  enum CodingKeys: String, CodingKey {
+    case id, user, content
+    case mediaUrl = "media_url"
+    case mediaName = "media_name"
+    case mediaType = "media_type"
+    case reactionCount = "reaction_count"
+    case commentCount = "comment_count"
+    case myReaction = "my_reaction"
+    case createdAt = "created_at"
+  }
+}
+
+struct FeedCommentModel: Codable {
+  let id: Int
+  let postId: Int
+  let user: UserResponse
+  let content: String
+  let createdAt: String
+
+  enum CodingKeys: String, CodingKey {
+    case id, user, content
+    case postId = "post_id"
+    case createdAt = "created_at"
+  }
+}
+
 // MARK: - TokenManager
 
 final class TokenManager {

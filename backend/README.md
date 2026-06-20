@@ -45,7 +45,7 @@ Các biến trong `.env`:
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Thời gian sống access token | `30` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Thời gian sống refresh token | `7` |
 | `UPLOAD_DIR` | Thư mục lưu file upload | `./uploads` |
-| `MAX_FILE_SIZE_MB` | Dung lượng file tối đa | `10` |
+| `MAX_FILE_SIZE_MB` | Dung lượng file tối đa | `100` |
 
 Tạo database (nếu chưa có):
 

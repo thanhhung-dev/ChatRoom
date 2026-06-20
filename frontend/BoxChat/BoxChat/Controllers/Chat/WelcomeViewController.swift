@@ -3,11 +3,21 @@ import UIKit
 // MARK: - Color Theme Extension
 extension UIColor {
   static let appBlue = UIColor(red: 0.19, green: 0.47, blue: 1.0, alpha: 1)
-  static let textDark = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
-  static let textGray = UIColor(red: 0.55, green: 0.57, blue: 0.62, alpha: 1)
-  static let borderGray = UIColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1)
-  static let bgLightStart = UIColor(red: 0.94, green: 0.96, blue: 1.00, alpha: 1)
-  static let bgLightEnd = UIColor(red: 0.97, green: 0.98, blue: 1.00, alpha: 1)
+  static let textDark = UIColor.label
+  static let textGray = UIColor.secondaryLabel
+  static let borderGray = UIColor.separator
+  static let welcomeBackgroundStart = UIColor { trait in
+    if trait.userInterfaceStyle == .dark {
+      return UIColor(red: 0.05, green: 0.06, blue: 0.08, alpha: 1)
+    }
+    return UIColor(red: 0.94, green: 0.96, blue: 1.00, alpha: 1)
+  }
+  static let welcomeBackgroundEnd = UIColor { trait in
+    if trait.userInterfaceStyle == .dark {
+      return UIColor(red: 0.09, green: 0.11, blue: 0.15, alpha: 1)
+    }
+    return UIColor(red: 0.97, green: 0.98, blue: 1.00, alpha: 1)
+  }
 }
 
 class WelcomeViewController: UIViewController {
@@ -75,7 +85,7 @@ class WelcomeViewController: UIViewController {
     b.setTitle("Đăng ký", for: .normal)
     b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
     b.setTitleColor(.textDark, for: .normal)
-    b.backgroundColor = .white
+    b.backgroundColor = .systemBackground
     b.layer.cornerRadius = 16
     b.layer.cornerCurve = .continuous
     b.layer.borderWidth = 1
@@ -110,7 +120,7 @@ class WelcomeViewController: UIViewController {
     let googleBtn = makeSocialButton(
       imageName: "G_logo", sfSymbol: nil,
       tint: UIColor(red: 0.85, green: 0.26, blue: 0.21, alpha: 1))
-    let appleBtn = makeSocialButton(imageName: nil, sfSymbol: "apple.logo", tint: .black)
+    let appleBtn = makeSocialButton(imageName: nil, sfSymbol: "apple.logo", tint: .label)
     let emailBtn = makeSocialButton(imageName: nil, sfSymbol: "envelope.fill", tint: .appBlue)
     [googleBtn, appleBtn, emailBtn].forEach { sv.addArrangedSubview($0) }
     return sv
@@ -135,9 +145,14 @@ class WelcomeViewController: UIViewController {
     }
   }
 
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    updateDynamicColors()
+  }
+
   // MARK: - Setup Background
   private func setupBackground() {
-    backgroundGradient.colors = [UIColor.bgLightStart.cgColor, UIColor.bgLightEnd.cgColor]
+    updateDynamicColors()
     backgroundGradient.startPoint = CGPoint(x: 0, y: 0)
     backgroundGradient.endPoint = CGPoint(x: 1, y: 1)
     view.layer.insertSublayer(backgroundGradient, at: 0)
@@ -253,11 +268,11 @@ class WelcomeViewController: UIViewController {
   // MARK: - Helpers
   private func makeSocialButton(imageName: String?, sfSymbol: String?, tint: UIColor) -> UIButton {
     let btn = UIButton(type: .system)
-    btn.backgroundColor = .white
+    btn.backgroundColor = .systemBackground
     btn.layer.cornerRadius = 27
     btn.layer.borderWidth = 1
     btn.layer.borderColor = UIColor.borderGray.cgColor
-    btn.layer.shadowColor = UIColor.black.cgColor
+    btn.layer.shadowColor = UIColor.label.withAlphaComponent(0.16).cgColor
     btn.layer.shadowOpacity = 0.06
     btn.layer.shadowRadius = 8
     btn.layer.shadowOffset = CGSize(width: 0, height: 2)
@@ -283,6 +298,18 @@ class WelcomeViewController: UIViewController {
       btn.heightAnchor.constraint(equalToConstant: 54),
     ])
     return btn
+  }
+
+  private func updateDynamicColors() {
+    backgroundGradient.colors = [
+      UIColor.welcomeBackgroundStart.cgColor,
+      UIColor.welcomeBackgroundEnd.cgColor,
+    ]
+    registerButton.layer.borderColor = UIColor.borderGray.cgColor
+    socialStack.arrangedSubviews.forEach { view in
+      view.layer.borderColor = UIColor.borderGray.cgColor
+      view.layer.shadowColor = UIColor.label.withAlphaComponent(0.16).cgColor
+    }
   }
 
   // MARK: - Interactive Button Animations

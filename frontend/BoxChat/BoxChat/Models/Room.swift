@@ -8,6 +8,7 @@ struct Room: Codable {
     let inviteCode: String
     let createdBy: Int?
     var memberCount: Int
+    var isDirect: Bool
     var members: [RoomMember]?
     var lastMessage: Message?
     var unreadCount: Int
@@ -19,6 +20,7 @@ struct Room: Codable {
         case inviteCode = "invite_code"
         case createdBy = "created_by"
         case memberCount = "member_count"
+        case isDirect = "is_direct"
         case members
         case lastMessage = "last_message"
         case unreadCount = "unread_count"
@@ -34,6 +36,7 @@ struct Room: Codable {
         inviteCode = try c.decodeIfPresent(String.self, forKey: .inviteCode) ?? ""
         createdBy = try c.decodeIfPresent(Int.self, forKey: .createdBy)
         memberCount = try c.decodeIfPresent(Int.self, forKey: .memberCount) ?? 0
+        isDirect = try c.decodeIfPresent(Bool.self, forKey: .isDirect) ?? false
         members = try c.decodeIfPresent([RoomMember].self, forKey: .members)
         lastMessage = try c.decodeIfPresent(Message.self, forKey: .lastMessage)
         unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
@@ -49,6 +52,7 @@ struct Room: Codable {
         try c.encode(inviteCode, forKey: .inviteCode)
         try c.encode(createdBy, forKey: .createdBy)
         try c.encode(memberCount, forKey: .memberCount)
+        try c.encode(isDirect, forKey: .isDirect)
         try c.encode(members, forKey: .members)
         try c.encode(lastMessage, forKey: .lastMessage)
         try c.encode(unreadCount, forKey: .unreadCount)
@@ -56,10 +60,31 @@ struct Room: Codable {
     }
 }
 
+extension Room {
+    var displayName: String {
+        guard isDirect,
+              let currentId = TokenManager.shared.currentUser?.id,
+              let other = members?.first(where: { $0.userId != currentId }) else {
+            return name
+        }
+        return other.displayName
+    }
+
+    var displayAvatarURL: String? {
+        guard isDirect,
+              let currentId = TokenManager.shared.currentUser?.id,
+              let other = members?.first(where: { $0.userId != currentId }) else {
+            return avatarUrl
+        }
+        return other.avatarUrl
+    }
+}
+
 struct RoomMember: Codable {
     let userId: Int
     let username: String
     let displayName: String
+    let avatarUrl: String?
     let role: String
     var isOnline: Bool
     let joinedAt: String
@@ -70,6 +95,7 @@ struct RoomMember: Codable {
         case userId = "user_id"
         case username
         case displayName = "display_name"
+        case avatarUrl = "avatar_url"
         case role
         case isOnline = "is_online"
         case joinedAt = "joined_at"
@@ -79,6 +105,7 @@ struct RoomMember: Codable {
         case id
         case username
         case displayName = "display_name"
+        case avatarUrl = "avatar_url"
         case isOnline = "is_online"
     }
 
@@ -89,11 +116,13 @@ struct RoomMember: Codable {
             userId = try user.decode(Int.self, forKey: .id)
             username = try user.decode(String.self, forKey: .username)
             displayName = try user.decodeIfPresent(String.self, forKey: .displayName) ?? username
+            avatarUrl = try user.decodeIfPresent(String.self, forKey: .avatarUrl)
             isOnline = try user.decodeIfPresent(Bool.self, forKey: .isOnline) ?? false
         } else {
             userId = try c.decode(Int.self, forKey: .userId)
             username = try c.decode(String.self, forKey: .username)
             displayName = try c.decodeIfPresent(String.self, forKey: .displayName) ?? username
+            avatarUrl = try c.decodeIfPresent(String.self, forKey: .avatarUrl)
             isOnline = try c.decodeIfPresent(Bool.self, forKey: .isOnline) ?? false
         }
         
@@ -106,6 +135,7 @@ struct RoomMember: Codable {
         try c.encode(userId, forKey: .userId)
         try c.encode(username, forKey: .username)
         try c.encode(displayName, forKey: .displayName)
+        try c.encode(avatarUrl, forKey: .avatarUrl)
         try c.encode(role, forKey: .role)
         try c.encode(isOnline, forKey: .isOnline)
         try c.encode(joinedAt, forKey: .joinedAt)

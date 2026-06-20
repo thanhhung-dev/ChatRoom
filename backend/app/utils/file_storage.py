@@ -7,10 +7,17 @@ from app.config import settings
 
 ALLOWED_EXTENSIONS = {
     # images
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".heic", ".heif",
+    # videos
+    ".mp4", ".mov", ".m4v", ".webm",
+    # audio
+    ".m4a", ".aac", ".mp3", ".wav",
     # documents
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".txt", ".csv", ".zip", ".rar",
+    ".txt", ".csv", ".rtf", ".md", ".json", ".xml", ".html",
+    ".zip", ".rar", ".7z",
+    # Apple/iWork documents
+    ".pages", ".numbers", ".key",
 }
 
 BASE_UPLOAD_DIR = Path(settings.upload_dir)

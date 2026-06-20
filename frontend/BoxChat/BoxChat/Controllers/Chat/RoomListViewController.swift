@@ -219,13 +219,14 @@ final class RoomListViewController: UIViewController {
         let query = searchTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         rooms = allRooms
             .filter { room in
-                let matchesSearch = query.isEmpty || room.name.lowercased().contains(query)
+                let matchesSearch =
+                    query.isEmpty || room.displayName.lowercased().contains(query)
                 let matchesFilter: Bool
                 switch selectedFilter {
                 case .all: matchesFilter = true
                 case .unread: matchesFilter = room.unreadCount > 0
-                case .groups: matchesFilter = room.memberCount > 1
-                case .friends: matchesFilter = room.memberCount <= 1
+                case .groups: matchesFilter = !room.isDirect && room.memberCount > 2
+                case .friends: matchesFilter = room.isDirect
                 }
                 return matchesSearch && matchesFilter
             }
@@ -271,11 +272,56 @@ final class RoomListViewController: UIViewController {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: "Tạo nhóm mới", style: .default) { [weak self] _ in self?.openCreateGroup() })
         sheet.addAction(UIAlertAction(title: "Nhập mã mời", style: .default) { [weak self] _ in self?.showJoinRoomPrompt() })
+        sheet.addAction(UIAlertAction(title: "Quét QR", style: .default) { [weak self] _ in self?.openQRScanner() })
         sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = addButton; popover.sourceRect = addButton.bounds
         }
         present(sheet, animated: true)
+    }
+
+    private func openQRScanner() {
+        let scanner = QRCodeScannerViewController()
+        scanner.modalPresentationStyle = .fullScreen
+        scanner.onScan = { [weak self] value in
+            self?.handleScannedQRCode(value)
+        }
+        present(scanner, animated: true)
+    }
+
+    private func handleScannedQRCode(_ value: String) {
+        guard let payload = Constants.qrPayload(from: value) else {
+            showAlert(title: "QR không hợp lệ", message: "Mã này không phải mã BoxChat.")
+            return
+        }
+
+        switch payload {
+        case .groupInvite(let code):
+            joinRoom(inviteCode: code)
+        case .friend(let username):
+            sendFriendRequest(username: username)
+        }
+    }
+
+    private func sendFriendRequest(username: String) {
+        let clean = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else {
+            showAlert(title: "QR không hợp lệ", message: "Không tìm thấy username để kết bạn.")
+            return
+        }
+        addButton.isEnabled = false
+        NetworkManager.shared.sendFriendRequest(username: clean) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.addButton.isEnabled = true
+                switch result {
+                case .success:
+                    self.showAlert(title: "Đã gửi lời mời", message: "Đợi @\(clean) chấp nhận để chat riêng.")
+                case .failure(let error):
+                    self.showAlert(title: "Không thể kết bạn", message: error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func openCreateGroup() {
@@ -291,14 +337,15 @@ final class RoomListViewController: UIViewController {
     private func showJoinRoomPrompt() {
         let alert = UIAlertController(title: "Nhập mã mời", message: "Dán mã mời của nhóm chat để tham gia.", preferredStyle: .alert)
         alert.addTextField { tf in
-            tf.placeholder = "Ví dụ: ABC123"
+            tf.placeholder = "Dán link mời hoặc mã nhóm"
             tf.autocapitalizationType = .allCharacters
             tf.autocorrectionType = .no
             tf.clearButtonMode = .whileEditing
         }
         alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
         alert.addAction(UIAlertAction(title: "Tham gia", style: .default) { [weak self, weak alert] _ in
-            let code = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let raw = alert?.textFields?.first?.text ?? ""
+            let code = Constants.inviteCode(from: raw)
             self?.joinRoom(inviteCode: code)
         })
         present(alert, animated: true)

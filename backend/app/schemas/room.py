@@ -34,6 +34,8 @@ class RoomResponse(BaseModel):
     invite_code: str
     created_by: int
     member_count: int = 0
+    is_direct: bool = False
+    members: list[RoomMemberResponse] = []
     unread_count: int = 0
     last_message: MessageResponse | None = None
     created_at: datetime
